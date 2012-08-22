@@ -6,7 +6,7 @@
 
 import usb, time
 
-USB_TIMEOUT = 1000 # milliseconds
+USB_TIMEOUT = 2000 # milliseconds
 CLEAR_LINES_WAIT = 0.7 # seconds
 
 font_length_table = [
@@ -70,7 +70,7 @@ def text_conversion(mm, leavespaceforicon, alignment):
     mm = mm.strip().replace(" ", "_")
     string_length_px = 0
     for k in range(0, len(mm)):
-        char_length_px = conversion(mm[k])
+        char_length_px = conversion(ord(mm[k]))
         if string_length_px + char_length_px > temp3:
             mm = mm[0:k]
             break
@@ -140,4 +140,4 @@ for pos in range(0, 48):
     display_icon_on_grid(devh, pos, 1 + pos % 32)
 clear_lines(devh, 63, 0x0000)
 for line in range(1, 7):
-    display_text_on_line(devh, line, "Hello   world", False, 1, line % 7)
+    display_text_on_line(devh, line, "Hello   world", False, 0, line % 7)

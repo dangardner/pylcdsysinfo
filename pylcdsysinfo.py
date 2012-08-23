@@ -23,8 +23,7 @@ class TextColours(object):
     RED         = 3
     WHITE       = 5
     CYAN        = 6
-    LIGHT_GREY  = 7
-    DARK_GREY   = 8
+    GREY        = 7
     BLACK       = 13
     BROWN       = 15
     BRICK_RED   = 16
@@ -33,12 +32,11 @@ class TextColours(object):
     ORANGE      = 21
     PURPLE      = 22
     PINK        = 23
-    BRIGHT_WHITE= 24
+    PEACH       = 24
     GOLD        = 25
     LAVENDER    = 26
     ORANGE_RED  = 27
     MAGENTA     = 28
-    YELLOW_ALT  = 29
     NAVY        = 30
     LIGHT_GREEN = 31
 
@@ -117,11 +115,11 @@ class LCDSysinfo(object):
 
     def _align_text(self, mm, alignment, screen_px, string_length_px):
         spaces,pixels = divmod(screen_px - string_length_px, 17)
-        if alignment == 0: # center
+        if alignment == Alignment.CENTRE:
             mm = mm.center(len(mm) + spaces, " ").center(len(mm) + pixels, "{")
-        elif alignment == 1: # left
+        elif alignment == Alignment.LEFT:
             mm = mm + " " * spaces + "{" * pixels
-        elif alignment == 2: # right
+        elif alignment == Alignment.RIGHT:
             mm = " " * spaces + "{" * pixels + mm
         return mm
 

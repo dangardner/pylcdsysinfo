@@ -275,7 +275,7 @@ class LCDSysInfo(object):
         """
         self.devh.controlMsg(0x40, 22, chr(ram_colour) + chr(temp_colour), ram, gpu_temp, self.usb_timeout_ms)
 
-    def display_network_info(self, recv, sent, recv_colour=TextColours.GREEN, sent_colour=TextColours.GREEN, recv_mb=0, sent_mb=0):
+    def display_network_info(self, recv, sent, recv_colour=TextColours.GREEN, sent_colour=TextColours.GREEN, recv_mb=False, sent_mb=False):
         """Display network utilisation information.
 
         Args:
@@ -287,11 +287,22 @@ class LCDSysInfo(object):
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
             sent_colour (int): The colour of the network transmit rate, from
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
+            recv_mb (bool): Display receive rate in kb instead of the default Mb.
+            sent_mb (bool): Display transmit rate in kb instead of the default Mb.
         """
-        # TODO sort out mb/kb (may need to power cycle)
-        recv_mb = 1
-        sent_mb = 1
         self.devh.controlMsg(0x40, 20, chr(recv_mb) + chr(sent_mb) + chr(recv_colour) + chr(sent_colour), recv, sent, self.usb_timeout_ms)
 
     def display_fan_info(self, cpufan, chafan, cpufan_colour=TextColours.GREEN, chafan_colour=TextColours.GREEN):
+        """Display fan speed information.
+
+        Args:
+            cpufan (int): Current CPU fan speed, to a maximum of 4 digits,
+                e.g. 1994 will display 1994rpm.
+            chafan (int): Current chassis fan speed, to a maximum of 4 digits,
+                e.g. 1994 will display 1994rpm.
+            cpufan_colour (int): The colour of the CPU fan speed, from
+                pylcdsysinfo.BackgroundColours (defaults to GREEN).
+            chafan_colour (int): The colour of the chassis fan speed, from
+                pylcdsysinfo.BackgroundColours (defaults to GREEN).
+        """
         self.devh.controlMsg(0x40, 23, chr(cpufan_colour) + chr(chafan_colour), cpufan, chafan, self.usb_timeout_ms)

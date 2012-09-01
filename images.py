@@ -2,10 +2,12 @@
 # -*- coding: UTF-8 -*-
 
 from pylcdsysinfo import LCDSysInfo, TextAlignment, TextColours
+from time import sleep
 
 d = LCDSysInfo()
-c = 1
-for dest in (180, 218, 256, 294, 332, 370, 408, 446):
-    d.display_text_on_line(3, "Image " + str(c), False, TextAlignment.CENTRE, TextColours.WHITE)
-    d.display_icon(0, dest)
-    c += 1
+while True:
+    for c in range(0, 8):
+        dest = 180 + (c * 38)
+        d.display_icon(0, dest)
+        d.display_text_on_line(1, str(c), False, TextAlignment.NONE, TextColours.WHITE)
+        sleep(1)

@@ -59,6 +59,7 @@ class BackgroundColours(object):
 
 class TextAlignment(object):
     """Text alignment specifiers"""
+    NONE        = -1
     CENTRE      = 0
     LEFT        = 1
     RIGHT       = 2
@@ -212,7 +213,7 @@ class LCDSysInfo(object):
             alignment (int): The text alignment from pylcdsysinfo.TextAlignment.
             colour (int): The text colour from pylcdsysinfo.TextColours.
         """
-        text_string = self._text_conversion(text_string, pad_for_icon, alignment)
+        text_string = self._text_conversion(text_string, pad_for_icon, alignment) + chr(0)
         text_length = len(text_string)
         if not pad_for_icon:
             text_length += 256

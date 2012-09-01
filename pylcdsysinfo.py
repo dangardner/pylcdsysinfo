@@ -90,7 +90,7 @@ class LCDSysInfo(object):
             RuntimeError: PyUSB 0.4 or later is required.
         """
 
-        self.usb_timeout_ms = 2000
+        self.usb_timeout_ms = 5000
         self.clear_lines_wait_ms = 1000
 
         dev = self._find_device(0x16c0, 0x05dc, index)

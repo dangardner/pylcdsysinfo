@@ -146,8 +146,8 @@ class LCDSysInfo(object):
         if bpp != 16:
             raise IOError("Image is not 16bpp")
 
-        if (width != 36 and height != 36) or (width != 320 and height != 240):
-            raise IOError("Image dimensions must be 36x36 or 320x240")
+        if (width != 36 or height != 36) and (width != 320 or height != 240):
+            raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
 
         raw_size = width * height * 2
         rawfile = bytearray(b'\x00' * (raw_size + 8))
@@ -342,62 +342,74 @@ class LCDSysInfo(object):
         """
         self.devh.controlMsg(0x40, 23, chr(cpufan_colour) + chr(chafan_colour), cpufan, chafan, self.usb_timeout_ms)
 
-        def send_command_to_flash(self, address, command):
-            """Send command to SPI flash memory.
+    def send_command_to_flash(self, address, command):
+        """Send command to SPI flash memory.
 
-            Args:
-                address (int): Address of sector or page to write
-                command (int): 0=write enable, 1=write disable, 2=erase sector, 3=program page.
-            """
-            self.devh.controlMsg(0x40, 15, "", address, command, self.usb_timeout_ms)
+        Args:
+            address (int): Address of sector or page to write
+            command (int): 0=write enable, 1=write disable, 2=erase sector, 3=program page.
+        """
+        self.devh.controlMsg(0x40, 15, "", address, command, self.usb_timeout_ms)
 
-        def write_image_to_flash(self, bitmap, sector):
-            """Write bitmap image to SPI flash memory.
+    def write_image_to_flash(self, sector, bitmap):
+        """Write bitmap image to SPI flash memory.
 
-            Args:
-                bitmap (str): Contents of bitmap image, in 16bpp, RGB 5:6:5 format.
-                sector (int): Address of starting sector (0-511).
-            """
-            address = sector * 16
-            rawfile = self._bmp_to_raw(bitmap)
+        Args:
+            sector (int): Address of starting sector (0-511).
+            bitmap (str): Contents of bitmap image, in 16bpp, RGB 5:6:5 format.
+        """
+        address = sector * 16
+        rawfile = self._bmp_to_raw(bitmap)
 
-            # write enable flash
-            self.send_command_to_flash(0, 5)
-            
-            file_index = 0
-            # flash is 2Mb, consisting of 512 x 4096-byte sectors
-            # each sector is 4096 bytes, consisting of 16 x 256-byte pages
-            # each page is 256 bytes, consisting of 4 x 64-byte chunks
-            for sector in range(0, 1 + int(len(rawfile) / 4096)):
-                print "Writing sector %d" % (address / 16)
-                # erase sector
-                self.send_command_to_flash(address / 16, 2)
-                time.sleep(self.erase_sector_wait_ms / 1000)
-                for page in range(0, 16):
-                    for chunk in range(0, 4):
-                        temp_byte = bytearray(b"\x00" * 64)
-                        for k in range(0, 64):
-                            if file_index < len(rawfile):
-                                temp_byte[k] = rawfile[file_index]
-                            file_index += 1
-                        # send 64 byte chunk to device's memory buffer, chunk=0,1,2,3
-                        self.devh.controlMsg(0x40, 16, temp_byte, 0, chunk, self.usb_timeout_ms)
+        # write enable flash
+        self.send_command_to_flash(0, 5)
+        
+        file_index = 0
+        # flash is 2Mb, consisting of 512 x 4096-byte sectors
+        # each sector is 4096 bytes, consisting of 16 x 256-byte pages
+        # each page is 256 bytes, consisting of 4 x 64-byte chunks
+        for sector in range(0, 1 + int(len(rawfile) / 4096)):
+            # erase sector
+            self.send_command_to_flash(address / 16, 2)
+            time.sleep(self.erase_sector_wait_ms / 1000)
+            for page in range(0, 16):
+                for chunk in range(0, 4):
+                    temp_byte = bytearray(b"\x00" * 64)
+                    for k in range(0, 64):
+                        if file_index < len(rawfile):
+                            temp_byte[k] = rawfile[file_index]
+                        file_index += 1
+                    # send 64 byte chunk to device's memory buffer, chunk=0,1,2,3
+                    self.devh.controlMsg(0x40, 16, temp_byte, 0, chunk, self.usb_timeout_ms)
 
-                    # fetch 2-byte checksum calculated by device
-                    b = self.devh.controlMsg(0xc0, 12, 2, 0, 0, self.usb_timeout_ms)
-                    device_checksum = b[1] + b[0] << 8
+                # fetch 2-byte checksum calculated by device
+                b = self.devh.controlMsg(0xc0, 12, 2, 0, 0, self.usb_timeout_ms)
+                device_checksum = b[0] * 256 + b[1]
 
-                    # calculate checksum locally
-                    local_checksum = sum([
-                        rawfile[i] for i in range(file_index - 256, min(file_index, len(rawfile)))
-                    ])
-                    if device_checksum != local_checksum:
-                        raise IOError("Checksum error")
+                # calculate checksum locally
+                local_checksum = sum([
+                    rawfile[i] for i in range(file_index - 256, min(file_index, len(rawfile)))
+                ])
 
-                    # write this 256-byte page to flash memory
-                    send_command_to_flash(address, 3)
-                    address += 1
-                    time.sleep(self.write_page_wait_ms / 1000)
+                if device_checksum != local_checksum:
+                    raise IOError("Checksum error in page %4x (device=%d local=%d)" % (address, device_checksum, local_checksum))
 
-            # write disable flash
-            self.self_command_to_flash(0, 1)
+                # write this 256-byte page to flash memory
+                self.send_command_to_flash(address, 3)
+                time.sleep(self.write_page_wait_ms / 1000)
+                address += 1
+
+        # write disable flash
+        self.send_command_to_flash(0, 1)
+
+    def get_device_info(self):
+        """Retrieve device information."""
+        info = { }
+        info['eeprom'] = self.devh.controlMsg(0xc0, 12, 8, 0, 1, self.usb_timeout_ms)
+        info['serial'] = self.devh.controlMsg(0xc0, 12, 8, 0, 5, self.usb_timeout_ms)
+        info['flash_id'] = self.devh.controlMsg(0xc0, 12, 2, 0, 6, self.usb_timeout_ms)
+
+        info['device_valid'] = (info['eeprom'][1] == 102 or info['eeprom'][1] == 103)
+        info['picture_frame_mode'] = (info['eeprom'][4] == 136)
+        info['8mb_flash'] = ((((info['eeprom'][6] / 2) & 1) == 0) and (((info['eeprom'][6] / 4) & 1) == 0))
+        return info

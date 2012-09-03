@@ -4,14 +4,14 @@ import sys, os
 from pylcdsysinfo import LCDSysInfo, TextAlignment, TextColours
 
 def usage():
-    print >>sys.stderr, "Usage: %s <slot 0-7> <imagefile>" % (sys.argv[0])
+    print >>sys.stderr, "Usage: %s <icon 1-42> <imagefile>" % (sys.argv[0])
     sys.exit(1)
 
 if len(sys.argv) != 3:
     usage()
 
 try:
-    if int(sys.argv[1]) < 0 or int(sys.argv[1]) > 7:
+    if int(sys.argv[1]) < 1 or int(sys.argv[1]) > 42:
         raise ValueError("Out of bounds")
 except ValueError:
     usage()
@@ -26,4 +26,4 @@ if not os.path.isfile(infile):
 bmpfile = os.popen("ffmpeg -f image2 -i %s -vcodec bmp -pix_fmt rgb565 -f image2 - 2>/dev/null" % (infile)).read()
 
 d = LCDSysInfo()
-d.write_image_to_flash(180 + int(sys.argv[1]) * 38, bmpfile)
+d.write_image_to_flash(int(sys.argv[1]), bmpfile)

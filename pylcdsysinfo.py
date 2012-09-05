@@ -16,7 +16,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # 
-# See <http://www.gnu.org/licenses/lgpl-3.0.txt>
+# See <http://www.gnu.org/licenses/gpl-3.0.txt>
 
 import usb, time
 

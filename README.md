@@ -1,7 +1,7 @@
 pylcdsysinfo
 ============
 
-Python interface to [Coldtears' LCD Sys Info device] [http://www.coldtears.com/electronics/]
+Python interface to Coldtears' LCD Sys Info device (http://www.coldtears.com/electronics/)
 
 Help on module pylcdsysinfo:
 

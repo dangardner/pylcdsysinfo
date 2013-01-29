@@ -3,6 +3,10 @@ pylcdsysinfo
 
 Python interface to Coldtears' LCD Sys Info device (http://www.coldtears.com/electronics/)
 
+**Note:** You may need to copy the provided `99-lcdsysinfo.rules` file into
+`/etc/udev/rules.d/` in order to grant pylcdsysinfo permission to claim the
+device without running as root.
+
 Help on module pylcdsysinfo:
 
     NAME

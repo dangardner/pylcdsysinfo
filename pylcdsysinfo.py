@@ -31,6 +31,9 @@ _font_length_table = [
     0x0B, 0x0E, 0x10, 0x16, 0x10, 0x10, 0x0E, 0x01, 0x11, 0x02
 ]
 
+# Padding necessary for left-aligned text in the right-hand column.
+COL2LEFT = '|' * 9 + '___'
+
 class TextColours(object):
     """Colour palette for text colours"""
     GREEN       = 1
@@ -233,9 +236,9 @@ class LCDSysInfo(object):
             mm = " " * spaces + "{" * pixels + mm
         return mm
 
-    def _text_conversion(self, mm, pad_for_icon, alignment):
+    def _text_conversion(self, mm, field_size, alignment):
         """Pad, truncate, align and otherwise munge the specified text."""
-        screen_px = 281 if pad_for_icon else 319
+        screen_px = (40 * field_size) - 1
         mm = mm.strip().replace(" ", "___")
         string_length_px = 0
         for k in range(0, len(mm)):
@@ -249,7 +252,7 @@ class LCDSysInfo(object):
             string_length_px += char_length_px
         return self._align_text(mm, alignment, screen_px, string_length_px)
 
-    def display_text_on_line(self, line, text_string, pad_for_icon, alignment, colour):
+    def display_text_on_line(self, line, text_string, pad_for_icon, alignment, colour, field_length=8):
         """Display text on a line of the device.
 
         Args:
@@ -260,11 +263,18 @@ class LCDSysInfo(object):
                 to accommodate an icon.
             alignment (int): The text alignment from pylcdsysinfo.TextAlignment.
             colour (int): The text colour from pylcdsysinfo.TextColours.
+            field_length (int): If provided, limits the size of the region in
+                which left/center/right alignment applies to the specified
+                number of icon widths.
         """
-        text_string = self._text_conversion(text_string, pad_for_icon, alignment) + chr(0)
+        field_length = min(field_length, pad_for_icon and 7 or 8)
+
+        text_string = self._text_conversion(text_string, field_length, alignment) + chr(0)
         text_length = len(text_string)
-        if not pad_for_icon:
+
+        if not pad_for_icon: # Cues the device to not leave space for the icon
             text_length += 256
+
         colour = min(colour, 32)
         line = max(1, min(line, 6))
         self.devh.controlMsg(0x40, 24, text_string, text_length, (line - 1) * 256 + colour,

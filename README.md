@@ -183,7 +183,7 @@ Help on module pylcdsysinfo:
          |          temp_colour (int): The colour of the GPU temperature, from
          |              pylcdsysinfo.BackgroundColours (defaults to GREEN).
          |
-         |  display_text_on_line(self, line, text_string, pad_for_icon, alignment, colour)
+         |  display_text_on_line(self, line, text_string, pad_for_icon, alignment, colour, field_length=8)
          |      Display text on a line of the device.
          |
          |      Args:
@@ -194,6 +194,9 @@ Help on module pylcdsysinfo:
          |              to accommodate an icon.
          |          alignment (int): The text alignment from pylcdsysinfo.TextAlignment.
          |          colour (int): The text colour from pylcdsysinfo.TextColours.
+         |          field_length (int): If provided, limits the size of the region in
+         |              which left/center/right alignment applies to the specified
+         |              number of icon widths.
          |
          |  get_device_info(self)
          |      Retrieve device information.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
-from pylcdsysinfo import BackgroundColours, TextColours, TextAlignment, TextLines, LCDSysInfo
+from pylcdsysinfo import BackgroundColours, COL2LEFT, TextColours, TextAlignment, TextLines, LCDSysInfo
 from time import sleep
 
 d = LCDSysInfo()
@@ -21,3 +21,18 @@ d.set_text_background_colour(BackgroundColours.BLUE)
 sleep(1)
 for line in range(1, 7):
     d.display_text_on_line(line, "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", False, TextAlignment.LEFT, TextColours.WHITE)
+sleep(1)
+d.clear_lines(TextLines.ALL, BackgroundColours.BLACK)
+d.set_text_background_colour(BackgroundColours.BLACK)
+d.display_icon(0, 218)
+for line in range(1, 7):
+    ipos = (line - 1) * 8
+    icon = (line * 2) + 10
+    d.display_icon(ipos, icon)
+    if line % 2:
+        d.display_text_on_line(line, 'Right', True, TextAlignment.RIGHT, TextColours.GREEN)
+        d.display_text_on_line(line, 'Left', True, TextAlignment.LEFT, TextColours.RED, 3)
+    else:
+        d.display_text_on_line(line, COL2LEFT + 'Left', True, TextAlignment.LEFT, TextColours.RED)
+        d.display_text_on_line(line, 'Right', True, TextAlignment.RIGHT, TextColours.GREEN, 3)
+    d.display_icon(ipos + 4, icon + 1)

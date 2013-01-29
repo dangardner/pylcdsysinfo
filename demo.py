@@ -30,9 +30,33 @@ for line in range(1, 7):
     icon = (line * 2) + 10
     d.display_icon(ipos, icon)
     if line % 2:
-        d.display_text_on_line(line, 'Right', True, TextAlignment.RIGHT, TextColours.GREEN)
-        d.display_text_on_line(line, 'Left', True, TextAlignment.LEFT, TextColours.RED, 3)
+        d.display_text_on_line(line, '2-color', True, TextAlignment.RIGHT, TextColours.GREEN)
+        d.display_text_on_line(line, 'Slow', True, TextAlignment.LEFT, TextColours.RED, 3)
     else:
-        d.display_text_on_line(line, COL2LEFT + 'Left', True, TextAlignment.LEFT, TextColours.RED)
-        d.display_text_on_line(line, 'Right', True, TextAlignment.RIGHT, TextColours.GREEN, 3)
+        d.display_text_on_line(line, COL2LEFT + 'Drawing', True, TextAlignment.LEFT, TextColours.RED)
+        d.display_text_on_line(line, 'Row', True, TextAlignment.RIGHT, TextColours.GREEN, 3)
     d.display_icon(ipos + 4, icon + 1)
+sleep(1)
+d.set_text_background_colour(BackgroundColours.BLACK)
+d.display_icon(0, 218)
+for line in range(1, 7):
+    ipos = (line - 1) * 8
+    icon = (line * 2) + 10
+    if not line == 5:
+        d.display_icon(ipos, icon)
+
+    if line == 1:
+        d.display_text_on_line(line, 'Two\tcolumn', True, (TextAlignment.RIGHT, TextAlignment.LEFT), TextColours.WHITE)
+    elif line == 2:
+        d.display_text_on_line(line, 'layout\twith', True, (TextAlignment.LEFT, TextAlignment.RIGHT), TextColours.RED)
+    elif line == 3:
+        d.display_text_on_line(line, 'only\t\ta', True, (TextAlignment.LEFT, TextAlignment.LEFT), TextColours.YELLOW)
+    elif line == 4:
+        d.display_text_on_line(line, 'single\tdraw', True, (TextAlignment.RIGHT, TextAlignment.RIGHT), TextColours.GREEN)
+    elif line == 5:
+        d.display_text_on_line(line, 'call\t\tper', False, TextAlignment.LEFT, TextColours.LIGHT_BLUE)
+    else:
+        d.display_text_on_line(line, 'text\tline', True, TextAlignment.RIGHT, TextColours.DARK_BLUE)
+
+    if not line == 5:
+        d.display_icon(ipos + 4, icon + 1)

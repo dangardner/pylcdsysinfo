@@ -259,17 +259,36 @@ class LCDSysInfo(object):
             line (int): The line on which the text should be displayed, in the range 1 to 6.
             text_string (str): The text to be displayed, which will be truncated as
                 required. Use "|" for wider spacing and "^" to display a "degrees" symbol.
+                Use "\\t" (TAB) to construct a two-column layout.
             pad_for_icon (bool): If true, padding will be added to the left of the text,
                 to accommodate an icon.
             alignment (int): The text alignment from pylcdsysinfo.TextAlignment.
+                May be a list/tuple with two values if text_string contains "\\t".
             colour (int): The text colour from pylcdsysinfo.TextColours.
             field_length (int): If provided, limits the size of the region in
                 which left/center/right alignment applies to the specified
-                number of icon widths.
+                number of icon widths. Ignored if text_string contains "\\t".
         """
         field_length = min(field_length, pad_for_icon and 7 or 8)
 
-        text_string = self._text_conversion(text_string, field_length, alignment) + chr(0)
+        if '\t' in text_string:
+            field_length = [pad_for_icon and 3 or 4] * 2
+            text_string = [x.replace('\t', '') for x in text_string.split('\t', 1)]
+
+            if isinstance(alignment, tuple):
+                alignment = list(alignment)
+            elif not isinstance(alignment, list):
+                alignment = [alignment] * 2
+
+            # Make room for the icon
+            if pad_for_icon:
+                field_length.insert(1,1)
+                text_string.insert(1,'')
+                alignment.insert(1, TextAlignment.LEFT)
+
+            text_string = ''.join(self._text_conversion(*x) for x in zip(text_string, field_length, alignment)) + chr(0)
+        else:
+            text_string = self._text_conversion(text_string, field_length, alignment) + chr(0)
         text_length = len(text_string)
 
         if not pad_for_icon: # Cues the device to not leave space for the icon

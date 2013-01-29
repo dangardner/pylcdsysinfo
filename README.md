@@ -190,13 +190,15 @@ Help on module pylcdsysinfo:
          |          line (int): The line on which the text should be displayed, in the range 1 to 6.
          |          text_string (str): The text to be displayed, which will be truncated as
          |              required. Use "|" for wider spacing and "^" to display a "degrees" symbol.
+         |              Use "\t" (TAB) to construct a two-column layout.
          |          pad_for_icon (bool): If true, padding will be added to the left of the text,
          |              to accommodate an icon.
          |          alignment (int): The text alignment from pylcdsysinfo.TextAlignment.
+         |              May be a list/tuple with two values if texxt_string contains "\t".
          |          colour (int): The text colour from pylcdsysinfo.TextColours.
          |          field_length (int): If provided, limits the size of the region in
          |              which left/center/right alignment applies to the specified
-         |              number of icon widths.
+         |              number of icon widths. Ignored if text_string contains "\t".
          |
          |  get_device_info(self)
          |      Retrieve device information.

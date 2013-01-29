@@ -1,21 +1,21 @@
 # -*- coding: UTF-8 -*-
 #
 # Interface with LCD Sys info USB device
-# 
+#
 # Copyright (C) 2012  Dan Gardner
 #
 # USB initialisation code has been adapted from pywws by Jim Easterbrook
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-# 
+#
 # See <http://www.gnu.org/licenses/gpl-3.0.txt>
 
 import usb, time
@@ -174,7 +174,7 @@ class LCDSysInfo(object):
                 rawfile[raw_index] = bmpfile[current_index + 1]
                 rawfile[raw_index + 1] = bmpfile[current_index]
                 raw_index += 2
-                current_index += 2 
+                current_index += 2
 
         return rawfile
 
@@ -203,7 +203,7 @@ class LCDSysInfo(object):
         """Display an icon at a specified position on the device.
 
         Args:
-            position (int): Number representing the position in which to display 
+            position (int): Number representing the position in which to display
                 the icon, in the range 0 to 47, where 0 is the top-left corner
                 of the display and 48 is the bottom-right corner.
             icon_number (int): The index of the icon to be displayed. This may be
@@ -377,7 +377,7 @@ class LCDSysInfo(object):
 
         # write enable flash
         self.send_command_to_flash(0, 5)
-        
+
         file_index = 0
         # flash is 2Mb, consisting of 512 x 4096-byte sectors
         # each sector is 4096 bytes, consisting of 16 x 256-byte pages

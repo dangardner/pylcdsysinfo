@@ -15,7 +15,7 @@ d.display_ram_gpu_info(1994, 32, TextColours.RED, TextColours.GREEN)
 d.display_network_info(1, 2, TextColours.RED, TextColours.GREEN, False, True)
 d.display_fan_info(1994, 1994, TextColours.RED, TextColours.GREEN)
 for pos in range(0, 48):
-    d.display_icon(pos, 1 + pos % 32)
+    d.display_icon(pos, 1 + pos)
 d.clear_lines(TextLines.ALL, BackgroundColours.WHITE)
 d.set_text_background_colour(BackgroundColours.BLUE)
 sleep(1)

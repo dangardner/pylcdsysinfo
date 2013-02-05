@@ -9,7 +9,7 @@ info = d.get_device_info()
 
 def b2h(ba):
     """Convert byte array to hyphen separated hex string."""
-    return '-'.join([ "%02X" % i for i in ba ]).strip()
+    return '-'.join(["%02X" % i for i in ba]).strip()
 
 print """Serial number: %s
 Flash Id: %s

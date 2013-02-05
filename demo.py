@@ -25,7 +25,6 @@ sleep(1)
 # Arbitrary text drawing
 d.clear_lines(TextLines.ALL, BackgroundColours.WHITE)
 d.set_text_background_colour(BackgroundColours.BLUE)
-sleep(1)
 for line in range(1, 7):
     d.display_text_on_line(line, "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", False, TextAlignment.LEFT, TextColours.WHITE)
 sleep(1)

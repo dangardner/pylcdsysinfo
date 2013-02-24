@@ -2,14 +2,15 @@
 # -*- coding: UTF-8 -*-
 
 import sys
-from pylcdsysinfo import LCDSysInfo, TextAlignment, TextColours
+from pylcdsysinfo import LCDSysInfo
 
 try:
-    if int(sys.argv[1]) < 1 or int(sys.argv[1]) > 180:
+    slot = int(sys.argv[1])
+    if not 0 < slot <= 43:
         raise ValueError("Out of bounds")
 except ValueError:
-        print >>sys.stderr, "Syntax: %s <1-42>" % (sys.argv[0])
+        print >>sys.stderr, "Syntax: %s <1-43>" % (sys.argv[0])
         sys.exit(1)
 
 d = LCDSysInfo()
-d.display_icon(0, int(sys.argv[1]))
+d.display_icon(0, slot)

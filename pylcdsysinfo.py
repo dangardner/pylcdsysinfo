@@ -1,21 +1,21 @@
 # -*- coding: UTF-8 -*-
 #
 # Interface with LCD Sys info USB device
-# 
+#
 # Copyright (C) 2012  Dan Gardner
 #
 # USB initialisation code has been adapted from pywws by Jim Easterbrook
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-# 
+#
 # See <http://www.gnu.org/licenses/gpl-3.0.txt>
 
 import usb, time
@@ -30,6 +30,28 @@ _font_length_table = [
     0x0E, 0x04, 0x07, 0x0F, 0x04, 0x18, 0x0E, 0x10, 0x0F, 0x0F, 0x0A, 0x0D,
     0x0B, 0x0E, 0x10, 0x16, 0x10, 0x10, 0x0E, 0x01, 0x11, 0x02
 ]
+
+large_image_indexes = [x * 38 + 180 for x in range(0,8)]
+
+# Padding necessary for left-aligned text in the right-hand column.
+COL2LEFT = '|' * 9 + '___'
+
+def count_bits_set(field):
+    """Count the number of bits set in an integer
+
+    Discovered independently by:
+
+      - Brian W. Kernighan (C Programming Language 2nd Ed.)
+      - Peter Wegner (CACM 3 (1960), 322)
+      - Derrick Lehmer (published in 1964 in a book edited by Beckenbach)
+
+    Source: http://www-graphics.stanford.edu/~seander/bithacks.html
+    """
+    count = 0
+    while field:
+        field &= field - 1
+        count += 1
+    return count
 
 class TextColours(object):
     """Colour palette for text colours"""
@@ -94,6 +116,18 @@ class LCDSysInfo(object):
     (http://coldtearselectronics.wikispaces.com/)
     """
 
+    usb_timeout_ms = 5000
+    clear_line_wait_ms = 1000
+    erase_sector_wait_ms = 220
+    min_display_icon_wait_ms = 10
+    max_display_icon_wait_ms = 700
+    write_page_wait_ms = 15
+    display_sysinfo_wait_ms = 50
+
+    # Values for calculating line-drawing times
+    max_display_text_wait_ms = 85
+    chars_per_icon = 2.75
+
     def __init__(self, index=0):
         """Opens a handle to an LCD Sys Info device.
 
@@ -104,11 +138,6 @@ class LCDSysInfo(object):
             IOError: An error ocurred while opening the LCD Sys Info device.
             RuntimeError: PyUSB 0.4 or later is required.
         """
-
-        self.usb_timeout_ms = 5000
-        self.clear_lines_wait_ms = 1000
-        self.erase_sector_wait_ms = 220
-        self.write_page_wait_ms = 15
 
         dev = self._find_device(0x16c0, 0x05dc, index)
         if not dev:
@@ -174,7 +203,7 @@ class LCDSysInfo(object):
                 rawfile[raw_index] = bmpfile[current_index + 1]
                 rawfile[raw_index + 1] = bmpfile[current_index]
                 raw_index += 2
-                current_index += 2 
+                current_index += 2
 
         return rawfile
 
@@ -203,16 +232,21 @@ class LCDSysInfo(object):
         """Display an icon at a specified position on the device.
 
         Args:
-            position (int): Number representing the position in which to display 
+            position (int): Number representing the position in which to display
                 the icon, in the range 0 to 47, where 0 is the top-left corner
                 of the display and 48 is the bottom-right corner.
             icon_number (int): The index of the icon to be displayed. This may be
-                in the range 1 to 32 for the default icons or 257+ for downloaded
+                in the range 1 to 43 for the default icons or 257+ for downloaded
                 icons. An invalid icon number will display garbage to screen.
         """
         # TODO create enumeration class for icons
         position = max(0, min(position, 47))
         self.devh.controlMsg(0x40, 27, "", position * 512 + icon_number, 25600, self.usb_timeout_ms)
+
+        if icon_number in large_image_indexes:
+            time.sleep(self.max_display_icon_wait_ms / 1000.0)
+        else:
+            time.sleep(self.min_display_icon_wait_ms / 1000.0)
 
     def set_text_background_colour(self, colour):
         """Set the background colour for text display.
@@ -233,9 +267,9 @@ class LCDSysInfo(object):
             mm = " " * spaces + "{" * pixels + mm
         return mm
 
-    def _text_conversion(self, mm, pad_for_icon, alignment):
+    def _text_conversion(self, mm, field_size, alignment):
         """Pad, truncate, align and otherwise munge the specified text."""
-        screen_px = 281 if pad_for_icon else 319
+        screen_px = (40 * field_size) - 1
         mm = mm.strip().replace(" ", "___")
         string_length_px = 0
         for k in range(0, len(mm)):
@@ -249,26 +283,59 @@ class LCDSysInfo(object):
             string_length_px += char_length_px
         return self._align_text(mm, alignment, screen_px, string_length_px)
 
-    def display_text_on_line(self, line, text_string, pad_for_icon, alignment, colour):
+    def display_text_on_line(self, line, text_string, pad_for_icon, alignment, colour, field_length=8):
         """Display text on a line of the device.
 
         Args:
             line (int): The line on which the text should be displayed, in the range 1 to 6.
             text_string (str): The text to be displayed, which will be truncated as
                 required. Use "|" for wider spacing and "^" to display a "degrees" symbol.
+                Use "\\t" (TAB) to construct a two-column layout.
             pad_for_icon (bool): If true, padding will be added to the left of the text,
                 to accommodate an icon.
             alignment (int): The text alignment from pylcdsysinfo.TextAlignment.
+                May be a list/tuple with two values if text_string contains "\\t".
             colour (int): The text colour from pylcdsysinfo.TextColours.
+            field_length (int): If provided, limits the size of the region in
+                which left/center/right alignment applies to the specified
+                number of icon widths. Ignored if text_string contains "\\t".
         """
-        text_string = self._text_conversion(text_string, pad_for_icon, alignment) + chr(0)
+        field_length = min(field_length, pad_for_icon and 7 or 8)
+
+        if '\t' in text_string:
+            field_length = [pad_for_icon and 3 or 4] * 2
+            text_string = [x.replace('\t', '') for x in text_string.split('\t', 1)]
+
+            if isinstance(alignment, tuple):
+                alignment = list(alignment)
+            elif not isinstance(alignment, list):
+                alignment = [alignment] * 2
+
+            # Make room for the icon
+            if pad_for_icon:
+                field_length.insert(1,1)
+                text_string.insert(1,'')
+                alignment.insert(1, TextAlignment.LEFT)
+
+            text_string = ''.join(self._text_conversion(*x) for x in zip(text_string, field_length, alignment)) + chr(0)
+        else:
+            text_string = self._text_conversion(text_string, field_length, alignment) + chr(0)
         text_length = len(text_string)
-        if not pad_for_icon:
+
+        if not pad_for_icon: # Cues the device to not leave space for the icon
             text_length += 256
+
         colour = min(colour, 32)
         line = max(1, min(line, 6))
         self.devh.controlMsg(0x40, 24, text_string, text_length, (line - 1) * 256 + colour,
             self.usb_timeout_ms)
+
+
+        # Return how long to wait before sending more data
+        if isinstance(field_length, (list, tuple)):
+            field_length = sum(field_length)
+        field_length_as_percent = field_length * self.chars_per_icon / 22.0
+        time.sleep(self.max_display_text_wait_ms * field_length_as_percent / 1000)
 
     def dim_when_idle(self, value):
         """Set whether to dim the LCD backlight after the device has been idle for 10 seconds.
@@ -292,7 +359,7 @@ class LCDSysInfo(object):
         """
         lines = max(1, min(lines, 63))
         self.devh.controlMsg(0x40, 26, "", lines, colour, self.usb_timeout_ms)
-        time.sleep(self.clear_lines_wait_ms / 1000)
+        time.sleep(self.clear_line_wait_ms * (count_bits_set(lines) / 6.0) * 0.8 / 1000)
 
     def display_cpu_info(self, cpu_util, cpu_temp, util_colour=TextColours.GREEN, temp_colour=TextColours.GREEN):
         """Display CPU utilisation and temperature information.
@@ -308,6 +375,7 @@ class LCDSysInfo(object):
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
         self.devh.controlMsg(0x40, 21, chr(util_colour) + chr(temp_colour), cpu_util, cpu_temp, self.usb_timeout_ms)
+        time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_ram_gpu_info(self, ram, gpu_temp, ram_colour=TextColours.GREEN, temp_colour=TextColours.GREEN):
         """Display available RAM and GPU temperature information.
@@ -323,6 +391,7 @@ class LCDSysInfo(object):
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
         self.devh.controlMsg(0x40, 22, chr(ram_colour) + chr(temp_colour), ram, gpu_temp, self.usb_timeout_ms)
+        time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_network_info(self, recv, sent, recv_colour=TextColours.GREEN, sent_colour=TextColours.GREEN, recv_mb=False, sent_mb=False):
         """Display network utilisation information.
@@ -340,6 +409,7 @@ class LCDSysInfo(object):
             sent_mb (bool): Display transmit rate in kb instead of the default Mb.
         """
         self.devh.controlMsg(0x40, 20, chr(recv_mb) + chr(sent_mb) + chr(recv_colour) + chr(sent_colour), recv, sent, self.usb_timeout_ms)
+        time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_fan_info(self, cpufan, chafan, cpufan_colour=TextColours.GREEN, chafan_colour=TextColours.GREEN):
         """Display fan speed information.
@@ -355,6 +425,7 @@ class LCDSysInfo(object):
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
         self.devh.controlMsg(0x40, 23, chr(cpufan_colour) + chr(chafan_colour), cpufan, chafan, self.usb_timeout_ms)
+        time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def send_command_to_flash(self, address, command):
         """Send command to SPI flash memory.
@@ -377,7 +448,7 @@ class LCDSysInfo(object):
 
         # write enable flash
         self.send_command_to_flash(0, 5)
-        
+
         file_index = 0
         # flash is 2Mb, consisting of 512 x 4096-byte sectors
         # each sector is 4096 bytes, consisting of 16 x 256-byte pages

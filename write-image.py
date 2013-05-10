@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import sys, os
-from pylcdsysinfo import LCDSysInfo, TextAlignment, TextColours
+from pylcdsysinfo import LCDSysInfo, TextAlignment, TextColours, large_image_indexes
+
 
 def usage():
     print >>sys.stderr, "Usage: %s <slot 0-7> <imagefile>" % (sys.argv[0])
@@ -11,7 +12,8 @@ if len(sys.argv) != 3:
     usage()
 
 try:
-    if int(sys.argv[1]) < 0 or int(sys.argv[1]) > 7:
+    slot = int(sys.argv[1])
+    if not 0 <= slot <= 7:
         raise ValueError("Out of bounds")
 except ValueError:
     usage()
@@ -26,4 +28,4 @@ if not os.path.isfile(infile):
 bmpfile = os.popen("ffmpeg -f image2 -i %s -vcodec bmp -pix_fmt rgb565 -f image2 - 2>/dev/null" % (infile)).read()
 
 d = LCDSysInfo()
-d.write_image_to_flash(180 + int(sys.argv[1]) * 38, bmpfile)
+d.write_image_to_flash(large_image_indexes[slot], bmpfile)

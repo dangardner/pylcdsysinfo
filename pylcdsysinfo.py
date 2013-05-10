@@ -5,6 +5,7 @@
 # Copyright (C) 2012  Dan Gardner
 #
 # USB initialisation code has been adapted from pywws by Jim Easterbrook
+# display_{text,icon}_anywhere by Manuel Mausz
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +19,7 @@
 #
 # See <http://www.gnu.org/licenses/gpl-3.0.txt>
 
-import usb, time
+import usb, time, struct
 
 _font_length_table = [
     0x11, 0x06, 0x08, 0x15, 0x0E, 0x19, 0x15, 0x03, 0x08, 0x08, 0x0F, 0x0D,
@@ -248,6 +249,34 @@ class LCDSysInfo(object):
         else:
             time.sleep(self.min_display_icon_wait_ms / 1000.0)
 
+    def display_icon_anywhere(self, pos_x, pos_y, icon_number):
+        """Display an icon at an exact position on the device.
+
+         Requires firmware >=1.04
+
+        Args:
+            pos_x (int): Number representing the position on the x-axis, in the
+                range 0 to 320 minus the width of your icon, where 0 is the left
+                edge of the display and 320 is the right edge.
+            pos_y (int): Number representing the position on the y-axis, in the
+                range 0 to 240 minus the width of your icon, where 0 is the top
+                edge of the display and 240 is the bottom edge.
+            icon_number (int): The index of the icon to be displayed. This may be
+                in the range 1 to 43 for the default icons or 257+ for downloaded
+                icons. An invalid icon number will display garbage to screen.
+        """
+        # TODO create enumeration class for icons
+        pos_x = max(0, min(pos_x, 320))
+        pos_y = max(0, min(pos_y, 240))
+        ba = struct.pack("<BBBB", pos_y >> 8, pos_y & 0xFF, pos_x >> 8, pos_x & 0xFF)
+        tmp = (icon_number << 8) + icon_number
+        self.devh.controlMsg(0x40, 29, ba, tmp, tmp, self.usb_timeout_ms)
+
+        if icon_number in large_image_indexes:
+            time.sleep(self.max_display_icon_wait_ms / 1000.0)
+        else:
+            time.sleep(self.min_display_icon_wait_ms / 1000.0)
+
     def set_text_background_colour(self, colour):
         """Set the background colour for text display.
 
@@ -336,6 +365,34 @@ class LCDSysInfo(object):
             field_length = sum(field_length)
         field_length_as_percent = field_length * self.chars_per_icon / 22.0
         time.sleep(self.max_display_text_wait_ms * field_length_as_percent / 1000)
+
+    def display_text_anywhere(self, pos_x, pos_y, text_string, colour):
+        """Display text at an exact position on the device.
+
+        Requires firmware >=1.04
+
+        Args:
+            pos_x (int): Number representing the position on the x-axis, in the
+                range 0 to 320 minus the width of your icon, where 0 is the left
+                edge of the display and 320 is the right edge.
+            pos_y (int): Number representing the position on the y-axis, in the
+                range 0 to 240 minus the width of your icon, where 0 is the top
+                edge of the display and 240 is the bottom edge.
+            text_string (str): The text to be displayed
+            colour (int): The text colour from pylcdsysinfo.TextColours.
+        """
+        pos_x = max(0, min(pos_x, 320))
+        pos_y = max(0, min(pos_y, 240))
+        pos_y2 = pos_y + 40
+        ba = struct.pack("<BBBBBBBB", pos_x >> 8, pos_x & 0xFF, pos_y >> 8, pos_y & 0xFF,
+            319 >> 8, 319 & 0xFF, pos_y2 >> 8, pos_y2 & 0xFF)
+        ba += text_string
+
+        text_length = len(text_string)
+        colour = min(colour, 32)
+        self.devh.controlMsg(0x40, 25, ba, text_length, colour, self.usb_timeout_ms)
+
+        time.sleep(self.max_display_text_wait_ms / 1000)
 
     def dim_when_idle(self, value):
         """Set whether to dim the LCD backlight after the device has been idle for 10 seconds.

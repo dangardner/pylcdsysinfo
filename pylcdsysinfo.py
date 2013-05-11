@@ -178,14 +178,14 @@ class LCDSysInfo(object):
 
     def _le_unpack(self, byte):
         """Converts little-endian byte string to integer."""
-        return sum([ ord(b) << (8 * i) for i, b in enumerate(byte) ])
+        return sum([ b << (8 * i) for i, b in enumerate(byte) ])
 
     def _bmp_to_raw(self, bmpfile):
         """Converts a 16bpp, RGB 5:6:5 bitmap to a raw format bytearray."""
-        data_offset = self._le_unpack(bmpfile[0x0a:0x0d])
-        width = self._le_unpack(bmpfile[0x12:0x15])
-        height = self._le_unpack(bmpfile[0x16:0x19])
-        bpp = self._le_unpack(bmpfile[0x1c:0x1d])
+        data_offset = self._le_unpack(bytearray(bmpfile[0x0a:0x0d]))
+        width = self._le_unpack(bytearray(bmpfile[0x12:0x15]))
+        height = self._le_unpack(bytearray(bmpfile[0x16:0x19]))
+        bpp = self._le_unpack(bytearray(bmpfile[0x1c:0x1d]))
 
         if bpp != 16:
             raise IOError("Image is not 16bpp")
@@ -516,7 +516,7 @@ class LCDSysInfo(object):
         # each page is 256 bytes, consisting of 4 x 64-byte chunks
         for sector in range(0, 1 + int(len(rawfile) / 4096)):
             # erase sector
-            self.send_command_to_flash(address / 16, 2)
+            self.send_command_to_flash(int(address / 16), 2)
             time.sleep(self.erase_sector_wait_ms / 1000)
             for page in range(0, 16):
                 for chunk in range(0, 4):

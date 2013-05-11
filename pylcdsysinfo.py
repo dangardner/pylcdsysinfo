@@ -356,6 +356,8 @@ class LCDSysInfo(object):
 
         colour = min(colour, 32)
         line = max(1, min(line, 6))
+        if isinstance(text_string, str):
+            text_string = text_string.encode("ascii")
         self.devh.controlMsg(0x40, 24, text_string, text_length, (line - 1) * 256 + colour,
             self.usb_timeout_ms)
 
@@ -386,6 +388,8 @@ class LCDSysInfo(object):
         pos_y2 = pos_y + 40
         ba = struct.pack("<BBBBBBBB", pos_x >> 8, pos_x & 0xFF, pos_y >> 8, pos_y & 0xFF,
             319 >> 8, 319 & 0xFF, pos_y2 >> 8, pos_y2 & 0xFF)
+        if isinstance(text_string, str):
+            text_string = text_string.encode("ascii")
         ba += text_string
 
         text_length = len(text_string)

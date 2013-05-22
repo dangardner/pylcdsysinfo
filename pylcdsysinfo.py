@@ -19,7 +19,7 @@
 #
 # See <http://www.gnu.org/licenses/gpl-3.0.txt>
 
-import usb, time, struct
+import usb.core, time, struct
 
 _font_length_table = [
     0x11, 0x06, 0x08, 0x15, 0x0E, 0x19, 0x15, 0x03, 0x08, 0x08, 0x0F, 0x0D,
@@ -36,6 +36,9 @@ large_image_indexes = [x * 38 + 180 for x in range(0,8)]
 
 # Padding necessary for left-aligned text in the right-hand column.
 COL2LEFT = '|' * 9 + '___'
+
+CTRL_READ  = 0xc0
+CTRL_WRITE = 0x40
 
 def count_bits_set(field):
     """Count the number of bits set in an integer
@@ -137,34 +140,26 @@ class LCDSysInfo(object):
                 Sys Info devices, with zero (the default) being the first device.
         Raises:
             IOError: An error ocurred while opening the LCD Sys Info device.
-            RuntimeError: PyUSB 0.4 or later is required.
         """
 
-        dev = self._find_device(0x16c0, 0x05dc, index)
-        if not dev:
+        devs = usb.core.find(idVendor=0x16c0, idProduct=0x05dc, find_all=True)
+        if not devs or len(devs) < index:
             raise IOError("LCD Sys Info device not found")
-        self.devh = dev.open()
-        if not self.devh:
-            raise IOError("Failed to open device")
+        dev = devs[index]
+
+        interface = 0
         try:
-            self.devh.claimInterface(0)
-        except usb.USBError:
-            if not hasattr(self.devh, "detachKernelDriver"):
-                raise RuntimeError("Please upgrade python-usb (pyusb) to 0.4 or later")
+            dev.set_configuration()
+            dev._ctx.managed_claim_interface(dev, interface)
+        except usb.core.USBError:
             try:
-                self.devh.detachKernelDriver(0)
-                self.devh.claimInterface(0)
-            except usb.USBError:
+                dev.detach_kernel_driver(interface)
+                dev._ctx.managed_claim_interface(dev, interface)
+            except usb.core.USBError:
                 raise IOError("Failed to claim interface")
 
-    def __del__(self):
-        """Closes the handle to the LCD Sys Info device."""
-        if self.devh:
-            try:
-                self.devh.releaseInterface()
-            except ValueError:
-                # interface was not claimed, not a problem
-                pass
+        self.dev = dev
+        self.dev.default_timeout = self.usb_timeout_ms
 
     def _find_device(self, idVendor, idProduct, index):
         """Locate the index'th device with specified vendor and product id."""
@@ -215,7 +210,7 @@ class LCDSysInfo(object):
             value (int): Number representing the LCD brightness, in the range 0 to 255.
         """
         value = max(0, min(value, 255))
-        self.devh.controlMsg(0x40, 13, "", min(value, 255), min(value, 255), self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 13, min(value, 255), min(value, 255))
 
     def save_brightness(self, off_value, on_value):
         """Set the brightness of the LCD backlight when idle and active and
@@ -227,7 +222,7 @@ class LCDSysInfo(object):
             on_value (int): Number representing the LCD backlight brightness
                 when the LCD is active.
         """
-        self.devh.controlMsg(0x40, 14, "", off_value + on_value * 256, 0, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 14, off_value + on_value * 256, 0)
 
     def display_icon(self, position, icon_number):
         """Display an icon at a specified position on the device.
@@ -242,7 +237,7 @@ class LCDSysInfo(object):
         """
         # TODO create enumeration class for icons
         position = max(0, min(position, 47))
-        self.devh.controlMsg(0x40, 27, "", position * 512 + icon_number, 25600, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 27, position * 512 + icon_number, 25600)
 
         if icon_number in large_image_indexes:
             time.sleep(self.max_display_icon_wait_ms / 1000.0)
@@ -270,7 +265,7 @@ class LCDSysInfo(object):
         pos_y = max(0, min(pos_y, 240))
         ba = struct.pack("<BBBB", pos_y >> 8, pos_y & 0xFF, pos_x >> 8, pos_x & 0xFF)
         tmp = (icon_number << 8) + icon_number
-        self.devh.controlMsg(0x40, 29, ba, tmp, tmp, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 29, tmp, tmp, ba)
 
         if icon_number in large_image_indexes:
             time.sleep(self.max_display_icon_wait_ms / 1000.0)
@@ -283,7 +278,7 @@ class LCDSysInfo(object):
         Args:
             colour (int): The background colour from pylcdsysinfo.BackgroundColours.
         """
-        self.devh.controlMsg(0x40, 30, "", colour, 0, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 30, colour, 0)
 
     def _align_text(self, mm, alignment, screen_px, string_length_px):
         """Align text suitably for the specified screen width"""
@@ -358,8 +353,8 @@ class LCDSysInfo(object):
         line = max(1, min(line, 6))
         if isinstance(text_string, str):
             text_string = text_string.encode("ascii")
-        self.devh.controlMsg(0x40, 24, text_string, text_length, (line - 1) * 256 + colour,
-            self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 24, text_length, (line - 1) * 256 + colour,
+            text_string)
 
 
         # Return how long to wait before sending more data
@@ -394,7 +389,7 @@ class LCDSysInfo(object):
 
         text_length = len(text_string)
         colour = min(colour, 32)
-        self.devh.controlMsg(0x40, 25, ba, text_length, colour, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 25, text_length, colour, ba)
 
         time.sleep(self.max_display_text_wait_ms / 1000)
 
@@ -406,9 +401,9 @@ class LCDSysInfo(object):
                 otherwise the function will be disabled.
         """
         if value:
-            self.devh.controlMsg(0x40, 17, "", 1, 0, self.usb_timeout_ms)
+            self.dev.ctrl_transfer(CTRL_WRITE, 17, 1, 0)
         else:
-            self.devh.controlMsg(0x40, 17, "", 0, 266, self.usb_timeout_ms)
+            self.dev.ctrl_transfer(CTRL_WRITE, 17, 0, 266)
 
     def clear_lines(self, lines, colour):
         """Clear lines of the display using a coloured background.
@@ -419,7 +414,7 @@ class LCDSysInfo(object):
             colour (int): The background colour from pylcdsysinfo.BackgroundColours.
         """
         lines = max(1, min(lines, 63))
-        self.devh.controlMsg(0x40, 26, "", lines, colour, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 26, lines, colour)
         time.sleep(self.clear_line_wait_ms * (count_bits_set(lines) / 6.0) * 0.8 / 1000)
 
     def display_cpu_info(self, cpu_util, cpu_temp, util_colour=TextColours.GREEN, temp_colour=TextColours.GREEN):
@@ -435,7 +430,7 @@ class LCDSysInfo(object):
             temp_colour (int): The colour of the CPU temperature, from
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
-        self.devh.controlMsg(0x40, 21, chr(util_colour) + chr(temp_colour), cpu_util, cpu_temp, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 21, cpu_util, cpu_temp, chr(util_colour) + chr(temp_colour))
         time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_ram_gpu_info(self, ram, gpu_temp, ram_colour=TextColours.GREEN, temp_colour=TextColours.GREEN):
@@ -451,7 +446,7 @@ class LCDSysInfo(object):
             temp_colour (int): The colour of the GPU temperature, from
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
-        self.devh.controlMsg(0x40, 22, chr(ram_colour) + chr(temp_colour), ram, gpu_temp, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 22, ram, gpu_temp, chr(ram_colour) + chr(temp_colour))
         time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_network_info(self, recv, sent, recv_colour=TextColours.GREEN, sent_colour=TextColours.GREEN, recv_mb=False, sent_mb=False):
@@ -469,7 +464,7 @@ class LCDSysInfo(object):
             recv_mb (bool): Display receive rate in kb instead of the default Mb.
             sent_mb (bool): Display transmit rate in kb instead of the default Mb.
         """
-        self.devh.controlMsg(0x40, 20, chr(recv_mb) + chr(sent_mb) + chr(recv_colour) + chr(sent_colour), recv, sent, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 20, recv, sent, chr(recv_mb) + chr(sent_mb) + chr(recv_colour) + chr(sent_colour))
         time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_fan_info(self, cpufan, chafan, cpufan_colour=TextColours.GREEN, chafan_colour=TextColours.GREEN):
@@ -485,7 +480,7 @@ class LCDSysInfo(object):
             chafan_colour (int): The colour of the chassis fan speed, from
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
-        self.devh.controlMsg(0x40, 23, chr(cpufan_colour) + chr(chafan_colour), cpufan, chafan, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 23, cpufan, chafan, chr(cpufan_colour) + chr(chafan_colour))
         time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def send_command_to_flash(self, address, command):
@@ -495,7 +490,7 @@ class LCDSysInfo(object):
             address (int): Address of sector or page to write
             command (int): 0=write enable, 1=write disable, 2=erase sector, 3=program page.
         """
-        self.devh.controlMsg(0x40, 15, "", address, command, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(CTRL_WRITE, 15, address, command)
 
     def write_image_to_flash(self, sector, bitmap):
         """Write bitmap image to SPI flash memory.
@@ -526,10 +521,10 @@ class LCDSysInfo(object):
                             temp_byte[k] = rawfile[file_index]
                         file_index += 1
                     # send 64 byte chunk to device's memory buffer, chunk=0,1,2,3
-                    self.devh.controlMsg(0x40, 16, temp_byte, 0, chunk, self.usb_timeout_ms)
+                    self.dev.ctrl_transfer(CTRL_WRITE, 16, 0, chunk, temp_byte)
 
                 # fetch 2-byte checksum calculated by device
-                b = self.devh.controlMsg(0xc0, 12, 2, 0, 0, self.usb_timeout_ms)
+                b = self.dev.ctrl_transfer(CTRL_READ, 12, 0, 0, 2)
                 device_checksum = b[0] * 256 + b[1]
 
                 # calculate checksum locally

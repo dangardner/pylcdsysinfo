@@ -101,7 +101,6 @@ Help on module pylcdsysinfo:
          |              Sys Info devices, with zero (the default) being the first device.
          |      Raises:
          |          IOError: An error ocurred while opening the LCD Sys Info device.
-         |          RuntimeError: PyUSB 0.4 or later is required.
          |
          |  clear_lines(self, lines, colour)
          |      Clear lines of the display using a coloured background.

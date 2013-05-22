@@ -557,5 +557,5 @@ class LCDSysInfo(object):
 
         info['device_valid'] = (info['eeprom'][1] == 102 or info['eeprom'][1] == 103)
         info['picture_frame_mode'] = (info['eeprom'][4] == 136)
-        info['8mb_flash'] = ((((info['eeprom'][6] / 2) & 1) == 0) and (((info['eeprom'][6] / 4) & 1) == 0))
+        info['8mb_flash'] = (((int(info['eeprom'][6] / 2) & 1) == 0) and ((int(info['eeprom'][6] / 4) & 1) == 0))
         return info

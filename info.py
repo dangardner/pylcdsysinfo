@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+from __future__ import print_function
 import binascii
 from pylcdsysinfo import LCDSysInfo
 
@@ -11,7 +12,7 @@ def b2h(ba):
     """Convert byte array to hyphen separated hex string."""
     return '-'.join(["%02X" % i for i in ba]).strip()
 
-print """Serial number: %s
+print("""Serial number: %s
 Flash Id: %s
 EEPROM Data: %s
 Device Valid: %s
@@ -24,4 +25,4 @@ Picture Frame Mode: %s
     info['device_valid'],
     info['8mb_flash'],
     info['picture_frame_mode'],
-),
+))

@@ -3,9 +3,15 @@ pylcdsysinfo
 
 Python interface to Coldtears' LCD Sys Info device (http://www.coldtears.com/electronics/)
 
-**Note:** You may need to copy the provided `99-lcdsysinfo.rules` file into
+**Note:** On some Linux platforms like Ubuntu only root has write permission
+to usb devices unless permission is is given to other users.
+You may need to copy the provided `99-lcdsysinfo.rules` file into
 `/etc/udev/rules.d/` in order to grant pylcdsysinfo permission to claim the
-device without running as root.
+device without running as root. Example:
+
+    sudo cp 99-lcdsysinfo.rules /etc/udev/rules.d/
+
+If the screen is already plugged in, unplug and plug back in again after the copy.
 
 Help on module pylcdsysinfo:
 

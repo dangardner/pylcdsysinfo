@@ -25,6 +25,12 @@ or through the distribution specific package install, example for Ubuntu/Debian:
 
 **Note:** using the operating system packages is likely to install an old version.
 
+For Windows an additional step is required, a usb driver is required to allow the
+python usb library to talk with the display. libusb-win32 version 1.2.4.0 from
+http://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.4.0/ 
+is known to work under Windows XP, with Python 2.6.4 and python usb 1.0.
+**Note:** unless a filter driver is used, libusb driver _may_ replace the driver
+from https://code.google.com/p/lcdsysinfo-driver/ when installed.
 
 Help on module pylcdsysinfo:
 

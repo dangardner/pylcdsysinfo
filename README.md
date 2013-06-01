@@ -11,7 +11,20 @@ device without running as root. Example:
 
     sudo cp 99-lcdsysinfo.rules /etc/udev/rules.d/
 
-If the screen is already plugged in, unplug and plug back in again after the copy.
+If the screen is already plugged in, unplug and plug back in again after the
+copy.
+
+pylcdsysinfo relies on the Python usb library http://pyusb.sourceforge.net/
+this can be installed via pip/easy_install, Example:
+
+    pip install pyusb
+
+or through the distribution specific package install, example for Ubuntu/Debian:
+
+    sudo apt-get install python-usb
+
+**Note:** using the operating system packages is likely to install an old version.
+
 
 Help on module pylcdsysinfo:
 

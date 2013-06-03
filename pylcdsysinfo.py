@@ -111,6 +111,41 @@ class TextLines(object):
     LINE_6      = 1 << 5
     ALL         = LINE_1 + LINE_2 + LINE_3 + LINE_4 + LINE_5 + LINE_6
 
+
+def _le_unpack(byte):
+    """Converts little-endian byte string to integer."""
+    return sum([ b << (8 * i) for i, b in enumerate(byte) ])
+
+def _bmp_to_raw(bmpfile):
+    """Converts a 16bpp, RGB 5:6:5 bitmap to a raw format bytearray."""
+    data_offset = _le_unpack(bytearray(bmpfile[0x0a:0x0d]))
+    width = _le_unpack(bytearray(bmpfile[0x12:0x15]))
+    height = _le_unpack(bytearray(bmpfile[0x16:0x19]))
+    bpp = _le_unpack(bytearray(bmpfile[0x1c:0x1d]))
+
+    if bpp != 16:
+        print 'bpp', bpp
+        raise IOError("Image is not 16bpp")
+
+    if (width != 36 or height != 36) and (width != 320 or height != 240):
+        raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
+
+    raw_size = width * height * 2
+    rawfile = bytearray(b'\x00' * (raw_size + 8))
+    rawfile[0:8] = [16, 16, bmpfile[0x13], bmpfile[0x12], bmpfile[0x17], bmpfile[0x16], 1, 27]
+    raw_index = 8
+
+    for y in range(0, height):
+        current_index = (width * (height - (y + 1)) * 2) + data_offset
+        for k in range(0, width):
+            rawfile[raw_index] = bmpfile[current_index + 1]
+            rawfile[raw_index + 1] = bmpfile[current_index]
+            raw_index += 2
+            current_index += 2
+
+    return rawfile
+
+
 class LCDSysInfo(object):
 
     """A Python driver for the Coldtears LCD Sys Info
@@ -175,38 +210,6 @@ class LCDSysInfo(object):
                     if index < 0:
                         return dev
         return None
-
-    def _le_unpack(self, byte):
-        """Converts little-endian byte string to integer."""
-        return sum([ b << (8 * i) for i, b in enumerate(byte) ])
-
-    def _bmp_to_raw(self, bmpfile):
-        """Converts a 16bpp, RGB 5:6:5 bitmap to a raw format bytearray."""
-        data_offset = self._le_unpack(bytearray(bmpfile[0x0a:0x0d]))
-        width = self._le_unpack(bytearray(bmpfile[0x12:0x15]))
-        height = self._le_unpack(bytearray(bmpfile[0x16:0x19]))
-        bpp = self._le_unpack(bytearray(bmpfile[0x1c:0x1d]))
-
-        if bpp != 16:
-            raise IOError("Image is not 16bpp")
-
-        if (width != 36 or height != 36) and (width != 320 or height != 240):
-            raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
-
-        raw_size = width * height * 2
-        rawfile = bytearray(b'\x00' * (raw_size + 8))
-        rawfile[0:8] = [16, 16, bmpfile[0x13], bmpfile[0x12], bmpfile[0x17], bmpfile[0x16], 1, 27]
-        raw_index = 8
-
-        for y in range(0, height):
-            current_index = (width * (height - (y + 1)) * 2) + data_offset
-            for k in range(0, width):
-                rawfile[raw_index] = bmpfile[current_index + 1]
-                rawfile[raw_index + 1] = bmpfile[current_index]
-                raw_index += 2
-                current_index += 2
-
-        return rawfile
 
     def set_brightness(self, value):
         """Set the brightness of the LCD backlight without saving the value to the device.
@@ -497,15 +500,14 @@ class LCDSysInfo(object):
         """
         self.devh.controlMsg(0x40, 15, "", address, command, self.usb_timeout_ms)
 
-    def write_image_to_flash(self, sector, bitmap):
-        """Write bitmap image to SPI flash memory.
+    def write_rawimage_to_flash(self, sector, rawfile):
+        """Write raw format bytearray bitmap image to SPI flash memory.
 
         Args:
             sector (int): Address of starting sector (0-511).
             bitmap (str): Contents of bitmap image, in 16bpp, RGB 5:6:5 format.
         """
         address = sector * 16
-        rawfile = self._bmp_to_raw(bitmap)
 
         # write enable flash
         self.send_command_to_flash(0, 5)
@@ -547,6 +549,16 @@ class LCDSysInfo(object):
 
         # write disable flash
         self.send_command_to_flash(0, 1)
+
+    def write_image_to_flash(self, sector, bitmap):
+        """Write bitmap image to SPI flash memory.
+
+        Args:
+            sector (int): Address of starting sector (0-511).
+            bitmap (str): Contents of BMP bitmap image, in 16bpp, RGB 5:6:5 format.
+        """
+        rawfile = _bmp_to_raw(bitmap)
+        self.write_rawimage_to_flash(sector, rawfile)
 
     def get_device_info(self):
         """Retrieve device information."""

@@ -21,6 +21,15 @@
 
 import usb, time, struct
 
+try:
+    from PIL import Image  # http://www.pythonware.com/products/pil/
+except ImportError:
+    try:
+        import Image  # http://www.pythonware.com/products/pil/
+    except ImportError:
+        Image = None
+
+
 _font_length_table = [
     0x11, 0x06, 0x08, 0x15, 0x0E, 0x19, 0x15, 0x03, 0x08, 0x08, 0x0F, 0x0D,
     0x05, 0x08, 0x06, 0x0B, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
@@ -144,6 +153,62 @@ def _bmp_to_raw(bmpfile):
             current_index += 2
 
     return rawfile
+
+def raw_to_image(data):
+    """Convert raw image data, as returned from _bmp_to_raw(), into PIL Image.
+    Raw data is big endian 16 bit rgb565 format with a custom 8 byte header.
+    """
+    be_ui2 = '>H'
+    header = data[0:8]
+    """Image header details
+    print repr(header)
+    for c, d in enumerate(header):
+        d = ord(d)
+        print '%d  0x%02x %d' % (c, d, d)
+    
+        '\x10\x10\x01@\x00\xf0\x01\x1b'
+    Index  Hex  Decimal   Description
+        0  0x10 16      # FIXED
+        1  0x10 16      # FIXED
+        2  0x01 1       # width byte 1
+        3  0x40 64      # width byte 2
+        4  0x00 0       # height byte 1
+        5  0xf0 240     # height byte 2
+        6  0x01 1       # FIXED
+        7  0x1b 27      # FIXED
+    """
+    width = header[2:2 + 2]
+    width = struct.unpack(be_ui2, width)[0]
+    height = header[4:4 + 2]
+    height = struct.unpack(be_ui2, height)[0]
+    
+    raw_data = data[8:]  # 16 bit rgb565 big endian buffer
+    """
+    im = Image.frombuffer('RGB', (width, height), raw_data, 'raw', 'RGB', 0, 1)
+    """
+    im = Image.new("RGB", (width, height))
+    for y in xrange(height):
+        current_index = (width * (height - (y + 1)) * 2)
+        y_dx = (height - y) - 1
+        for x in xrange(width):
+            px1 = raw_data[current_index]
+            px2 = raw_data[current_index + 1]
+            
+            # convert big-endian 2 bytes into short
+            #px = ord(px2) + (ord(px1) * 256)  # dumb big endian 2 bytes to short
+            px = struct.unpack(be_ui2, raw_data[current_index:current_index + 2])[0]
+            
+            # Convert from rgb565 into rgb888
+            im.putpixel((x, y_dx),
+                    (
+                        (px & 0xF800) >> 8,
+                        (px & 0x07E0) >> 3,
+                        (px & 0x001F) << 3
+                    )
+                )
+            current_index += 2
+    im.save('test.png')
+    return im
 
 
 class LCDSysInfo(object):

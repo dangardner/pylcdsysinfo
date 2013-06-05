@@ -566,12 +566,28 @@ class LCDSysInfo(object):
         self.devh.controlMsg(0x40, 15, "", address, command, self.usb_timeout_ms)
 
     def write_rawimage_to_flash(self, sector, rawfile):
-        """Write raw format bytearray bitmap image to SPI flash memory.
+        """Write raw format bitmap image to SPI flash memory.
 
         Args:
             sector (int): Address of starting sector (0-511).
-            bitmap (str): Contents of bitmap image, in 16bpp, RGB 5:6:5 format.
+            bitmap (str/bytes/bytearray): Contents of raw bitmap image, in big endian 16bpp, RGB 5:6:5 format.
         """
+        rawfile = bytearray(rawfile)
+        header = rawfile[0:8]
+        # Sanity check
+        be_ui2 = '>H'
+        width = header[2:2 + 2]
+        width = buffer(width)  # struct does not accept bytearray params
+        width = struct.unpack(be_ui2, width)[0]
+        height = header[4:4 + 2]
+        height = buffer(height)
+        height = struct.unpack(be_ui2, height)[0]
+        if (width != 36 or height != 36) and (width != 320 or height != 240):
+            raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
+        # TODO check rest of header?
+        # expected_header = [16, 16, width1, width2, height1, height2, 1, 27]
+        # TODO check length of rawfile?
+
         address = sector * 16
 
         # write enable flash

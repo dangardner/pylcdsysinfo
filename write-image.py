@@ -28,6 +28,7 @@ if not os.path.isfile(infile):
 
 if pylcdsysinfo.Image:
     im = pylcdsysinfo.Image.open(infile)
+    im = pylcdsysinfo.simpleimage_resize(im)
     rawfile = pylcdsysinfo.image_to_raw(im)
 else:
     # lets hope ffmpeg is available......

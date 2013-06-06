@@ -246,6 +246,30 @@ def image_to_raw(im):
             current_index += 2
     return rawfile
 
+MAX_IMAGE_SIZE = (320, 240)  # LCD screen size
+
+def simpleimage_resize(im, expected_size=MAX_IMAGE_SIZE):
+    if im.size > expected_size:
+        """resize - maintain aspect ratio
+        NOTE PIL thumbnail method does not increase
+        if new size is larger than original
+        2 passes gives good speed and quality
+        """
+        im.thumbnail((expected_size[0] * 2, expected_size[1] * 2))
+        im.thumbnail(expected_size, Image.ANTIALIAS)
+    
+    # image is not too big, but it may be too small
+    # _may_ need to add black bar(s)
+    if im.size < expected_size:
+        im = im.convert('RGB')  # convert to RGB
+        bg_col = (0, 0, 0)
+        background = Image.new('RGB', expected_size, bg_col)
+        x, y = im.size
+        background.paste(im, (0, 0, x, y))  # does not center/centre
+        im = background
+    
+    return im
+
 
 class LCDSysInfo(object):
 

@@ -50,6 +50,24 @@ class ImageTests(unittest.TestCase):
         f.close()
         self.assertEqual(canon_data, raw_data, 'does not match canon')
 
+    def testimage_pattern_320x240_rgb888_png(self):
+        filename = 'testpattern.png'
+        """NOTE the rgb888 -> rgb565  conversion implemented in ffmeg is
+        slightly different to the technique applied in image_to_raw().
+        This is why a different raw file is used, also testpattern_rgb565.bmp
+        is already in rgb565 format, the png is full 16/24 bit depth.
+        """
+        filename = os.path.join(IMAGE_320X240_DIR, filename)
+        canon_filename = os.path.splitext(filename)[0] + '.raw'
+
+        im = pylcdsysinfo.Image.open(filename)
+        raw_data = pylcdsysinfo.image_to_raw(im)
+
+        f = open(canon_filename, 'rb')
+        canon_data = f.read()
+        f.close()
+        self.assertEqual(canon_data, raw_data, 'does not match canon')
+
 
 if __name__ == '__main__':
     unittest.main()

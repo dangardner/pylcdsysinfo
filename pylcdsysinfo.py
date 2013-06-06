@@ -133,7 +133,6 @@ def _bmp_to_raw(bmpfile):
     bpp = _le_unpack(bytearray(bmpfile[0x1c:0x1d]))
 
     if bpp != 16:
-        print 'bpp', bpp
         raise IOError("Image is not 16bpp")
 
     if (width != 36 or height != 36) and (width != 320 or height != 240):
@@ -209,6 +208,43 @@ def raw_to_image(data):
             current_index += 2
     im.save('test.png')
     return im
+
+def image_to_raw(im):
+    """Convert PIL Image into raw image data, reverse of raw_to_image.
+    This is pretty much a straight clone of the approach taken by _bmp_to_raw()
+    this is not efficient"""
+    be_ui2 = '>H'
+
+    im = im.convert('RGB')  # convert to rgb888
+    width, height = im.size
+    width_bin = struct.pack(be_ui2, width)
+    height_bin = struct.pack(be_ui2, height)
+    
+    raw_size = width * height * 2
+    rawfile = bytearray(b'\x00' * (raw_size + 8))
+    rawfile[0:8] = [16, 16, width_bin[0], width_bin[1], height_bin[0], height_bin[1], 1, 27]
+    raw_index = 8
+
+    for y in xrange(height):
+        current_index = raw_index + (width * (height - (y + 1)) * 2)
+        y_dx = (height - y) - 1
+        for x in xrange(width):
+            r, g, b = im.getpixel((x, y_dx))
+            
+            rgb565 = (int(float(r) / 255 * 31) << 11) | (int(float(g) / 255 * 63) << 5) | (int(float(b) / 255 * 31))
+            """
+            r_new = (r >> 3) << 3
+            g_new = (g >> 2) << 2
+            b_new = (b >> 3) << 3
+
+            print x, y, y_dx, (r, g, b), (hex(r), hex(g), hex(b)), (hex(r_new), hex(g_new), hex(b_new))
+            #print rgb565, hex(rgb565)
+            """
+            one_pixel = struct.pack(be_ui2, rgb565)
+            rawfile[current_index] = one_pixel[0]
+            rawfile[current_index + 1] = one_pixel[1]
+            current_index += 2
+    return rawfile
 
 
 class LCDSysInfo(object):

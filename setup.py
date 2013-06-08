@@ -15,19 +15,44 @@
 # GNU General Public License for more details.
 #
 # See <http://www.gnu.org/licenses/gpl-3.0.txt>
-"""Example usage:
+"""Please use pip to install http://www.pip-installer.org/
+
+Examples of pip usage:
+
+    pip install git+https://github.com/clach04/pylcdsysinfo.git@add_setup_py
+    pip install -r requirements.txt
+
+Example setup.py usage:
 
     ./setup.py install
     ./setup.py sdist
 
 """
 
-from distutils.core import setup
+try:
+    import setuptools
+    from setuptools import setup
+except ImportError:
+    setuptools = None
+    from distutils.core import setup
 
 import pylcdsysinfo
 
-print pylcdsysinfo.version_info
-print pylcdsysinfo.__version__
+
+kwargs = {
+    'requires': [
+        # NOTE pyusb>=0.4 does work but later version 1.0 releases are
+        # needed for to avoid crashes on device removal under Windows
+        'pyusb (>=1.0.0a3)',
+    ],
+}
+
+if setuptools:
+    kwargs['install_requires'] = [
+            # NOTE pyusb>=0.4 does work but later version 1.0 releases are
+            # needed for to avoid crashes on device removal under Windows
+            'pyusb>=1.0.0a3',
+        ]
 
 setup(
     name='pylcdsysinfo',
@@ -41,5 +66,6 @@ setup(
     #packages=['pylcdsysinfo',],
     long_description =
 """pylcdsysinfo offers easy access to the Cold Tears LCD Sys info USB device from Python.
-"""
+""",
+    **kwargs
 )

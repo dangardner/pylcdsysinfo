@@ -625,12 +625,13 @@ class LCDSysInfo(object):
         """
         self.devh.controlMsg(0x40, 15, "", address, command, self.usb_timeout_ms)
 
-    def write_rawimage_to_flash(self, sector, rawfile):
+    def write_rawimage_to_flash(self, sector, rawfile, check_sizes=True):
         """Write raw format bitmap image to SPI flash memory.
 
         Args:
             sector (int): Address of starting sector (0-511).
             bitmap (str/bytes/bytearray): Contents of raw bitmap image, in big endian 16bpp, RGB 5:6:5 format.
+            check_sizes (bool): If True ensure image dimensions are either 36x36 or 320x240
         """
         rawfile = bytearray(rawfile)
         header = rawfile[0:8]
@@ -642,8 +643,11 @@ class LCDSysInfo(object):
         height = header[4:4 + 2]
         height = buffer(height)
         height = struct.unpack(be_ui2, height)[0]
-        if (width != 36 or height != 36) and (width != 320 or height != 240):
-            raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
+        
+        if check_sizes:
+            if (width != 36 or height != 36) and (width != 320 or height != 240):
+                raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
+
         # TODO check rest of header?
         # expected_header = [16, 16, width1, width2, height1, height2, 1, 27]
         # TODO check length of rawfile?
@@ -691,7 +695,7 @@ class LCDSysInfo(object):
         # write disable flash
         self.send_command_to_flash(0, 1)
 
-    def write_image_to_flash(self, sector, bitmap):
+    def write_image_to_flash(self, sector, bitmap, check_sizes=True):
         """Write bitmap image to SPI flash memory.
 
         Args:
@@ -699,7 +703,7 @@ class LCDSysInfo(object):
             bitmap (str): Contents of BMP bitmap image, in 16bpp, RGB 5:6:5 format.
         """
         rawfile = _bmp_to_raw(bitmap)
-        self.write_rawimage_to_flash(sector, rawfile)
+        self.write_rawimage_to_flash(sector, rawfile, check_sizes=check_sizes)
 
     def get_device_info(self):
         """Retrieve device information."""

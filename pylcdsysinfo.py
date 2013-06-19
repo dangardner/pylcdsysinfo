@@ -21,6 +21,15 @@
 
 import usb, time, struct
 
+try:
+    from PIL import Image  # http://www.pythonware.com/products/pil/
+except ImportError:
+    try:
+        import Image  # http://www.pythonware.com/products/pil/
+    except ImportError:
+        Image = None
+
+
 _font_length_table = [
     0x11, 0x06, 0x08, 0x15, 0x0E, 0x19, 0x15, 0x03, 0x08, 0x08, 0x0F, 0x0D,
     0x05, 0x08, 0x06, 0x0B, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
@@ -111,6 +120,157 @@ class TextLines(object):
     LINE_6      = 1 << 5
     ALL         = LINE_1 + LINE_2 + LINE_3 + LINE_4 + LINE_5 + LINE_6
 
+
+def _le_unpack(byte):
+    """Converts little-endian byte string to integer."""
+    return sum([ b << (8 * i) for i, b in enumerate(byte) ])
+
+def _bmp_to_raw(bmpfile):
+    """Converts a 16bpp, RGB 5:6:5 bitmap to a raw format bytearray."""
+    data_offset = _le_unpack(bytearray(bmpfile[0x0a:0x0d]))
+    width = _le_unpack(bytearray(bmpfile[0x12:0x15]))
+    height = _le_unpack(bytearray(bmpfile[0x16:0x19]))
+    bpp = _le_unpack(bytearray(bmpfile[0x1c:0x1d]))
+
+    if bpp != 16:
+        raise IOError("Image is not 16bpp")
+
+    if (width != 36 or height != 36) and (width != 320 or height != 240):
+        raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
+
+    raw_size = width * height * 2
+    rawfile = bytearray(b'\x00' * (raw_size + 8))
+    rawfile[0:8] = [16, 16, bmpfile[0x13], bmpfile[0x12], bmpfile[0x17], bmpfile[0x16], 1, 27]
+    raw_index = 8
+
+    for y in range(0, height):
+        current_index = (width * (height - (y + 1)) * 2) + data_offset
+        for k in range(0, width):
+            rawfile[raw_index] = bmpfile[current_index + 1]
+            rawfile[raw_index + 1] = bmpfile[current_index]
+            raw_index += 2
+            current_index += 2
+
+    return rawfile
+
+def raw_to_image(data):
+    """Convert raw image data, as returned from _bmp_to_raw(), into PIL Image.
+    Raw data is big endian 16 bit rgb565 format with a custom 8 byte header.
+    """
+    be_ui2 = '>H'
+    header = data[0:8]
+    """Image header details
+    print repr(header)
+    for c, d in enumerate(header):
+        d = ord(d)
+        print '%d  0x%02x %d' % (c, d, d)
+    
+        '\x10\x10\x01@\x00\xf0\x01\x1b'
+    Index  Hex  Decimal   Description
+        0  0x10 16      # FIXED
+        1  0x10 16      # FIXED
+        2  0x01 1       # width byte 1
+        3  0x40 64      # width byte 2
+        4  0x00 0       # height byte 1
+        5  0xf0 240     # height byte 2
+        6  0x01 1       # FIXED
+        7  0x1b 27      # FIXED
+    """
+    width = header[2:2 + 2]
+    width = struct.unpack(be_ui2, width)[0]
+    height = header[4:4 + 2]
+    height = struct.unpack(be_ui2, height)[0]
+    
+    raw_data = data[8:]  # 16 bit rgb565 big endian buffer
+    """
+    im = Image.frombuffer('RGB', (width, height), raw_data, 'raw', 'RGB', 0, 1)
+    """
+    im = Image.new("RGB", (width, height))
+    for y in xrange(height):
+        current_index = (width * (height - (y + 1)) * 2)
+        y_dx = (height - y) - 1
+        for x in xrange(width):
+            px1 = raw_data[current_index]
+            px2 = raw_data[current_index + 1]
+            
+            # convert big-endian 2 bytes into short
+            #px = ord(px2) + (ord(px1) * 256)  # dumb big endian 2 bytes to short
+            px = struct.unpack(be_ui2, raw_data[current_index:current_index + 2])[0]
+            
+            # Convert from rgb565 into rgb888
+            im.putpixel((x, y_dx),
+                    (
+                        (px & 0xF800) >> 8,
+                        (px & 0x07E0) >> 3,
+                        (px & 0x001F) << 3
+                    )
+                )
+            current_index += 2
+    im.save('test.png')
+    return im
+
+def image_to_raw(im):
+    """Convert PIL Image into raw image data, reverse of raw_to_image.
+    This is pretty much a straight clone of the approach taken by _bmp_to_raw()
+    this is not efficient"""
+    be_ui2 = '>H'
+
+    im = im.convert('RGB')  # convert to rgb888
+    width, height = im.size
+    width_bin = struct.pack(be_ui2, width)
+    height_bin = struct.pack(be_ui2, height)
+    
+    raw_size = width * height * 2
+    rawfile = bytearray(b'\x00' * (raw_size + 8))
+    rawfile[0:8] = [16, 16, width_bin[0], width_bin[1], height_bin[0], height_bin[1], 1, 27]
+    raw_index = 8
+
+    for y in xrange(height):
+        current_index = raw_index + (width * (height - (y + 1)) * 2)
+        y_dx = (height - y) - 1
+        for x in xrange(width):
+            r, g, b = im.getpixel((x, y_dx))
+            
+            rgb565 = (int(float(r) / 255 * 31) << 11) | (int(float(g) / 255 * 63) << 5) | (int(float(b) / 255 * 31))
+            """
+            r_new = (r >> 3) << 3
+            g_new = (g >> 2) << 2
+            b_new = (b >> 3) << 3
+
+            print x, y, y_dx, (r, g, b), (hex(r), hex(g), hex(b)), (hex(r_new), hex(g_new), hex(b_new))
+            #print rgb565, hex(rgb565)
+            """
+            one_pixel = struct.pack(be_ui2, rgb565)
+            rawfile[current_index] = one_pixel[0]
+            rawfile[current_index + 1] = one_pixel[1]
+            current_index += 2
+    return rawfile
+
+MAX_IMAGE_SIZE = (320, 240)  # LCD screen size
+
+def simpleimage_resize(im, expected_size=MAX_IMAGE_SIZE):
+    if im.size > expected_size:
+        """resize - maintain aspect ratio
+        NOTE PIL thumbnail method does not increase
+        if new size is larger than original
+        2 passes gives good speed and quality
+        """
+        im.thumbnail((expected_size[0] * 2, expected_size[1] * 2))
+        im.thumbnail(expected_size, Image.ANTIALIAS)
+    
+    # image is not too big, but it may be too small
+    # _may_ need to add black bar(s)
+    if im.size < expected_size:
+        im = im.convert('RGB')  # convert to RGB
+        bg_col = (0, 0, 0)
+        background = Image.new('RGB', expected_size, bg_col)
+        x, y = im.size
+        background.paste(im, (0, 0, x, y))  # does not center/centre
+        im = background
+    
+    return im
+
+
 class LCDSysInfo(object):
 
     """A Python driver for the Coldtears LCD Sys Info
@@ -175,38 +335,6 @@ class LCDSysInfo(object):
                     if index < 0:
                         return dev
         return None
-
-    def _le_unpack(self, byte):
-        """Converts little-endian byte string to integer."""
-        return sum([ b << (8 * i) for i, b in enumerate(byte) ])
-
-    def _bmp_to_raw(self, bmpfile):
-        """Converts a 16bpp, RGB 5:6:5 bitmap to a raw format bytearray."""
-        data_offset = self._le_unpack(bytearray(bmpfile[0x0a:0x0d]))
-        width = self._le_unpack(bytearray(bmpfile[0x12:0x15]))
-        height = self._le_unpack(bytearray(bmpfile[0x16:0x19]))
-        bpp = self._le_unpack(bytearray(bmpfile[0x1c:0x1d]))
-
-        if bpp != 16:
-            raise IOError("Image is not 16bpp")
-
-        if (width != 36 or height != 36) and (width != 320 or height != 240):
-            raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
-
-        raw_size = width * height * 2
-        rawfile = bytearray(b'\x00' * (raw_size + 8))
-        rawfile[0:8] = [16, 16, bmpfile[0x13], bmpfile[0x12], bmpfile[0x17], bmpfile[0x16], 1, 27]
-        raw_index = 8
-
-        for y in range(0, height):
-            current_index = (width * (height - (y + 1)) * 2) + data_offset
-            for k in range(0, width):
-                rawfile[raw_index] = bmpfile[current_index + 1]
-                rawfile[raw_index + 1] = bmpfile[current_index]
-                raw_index += 2
-                current_index += 2
-
-        return rawfile
 
     def set_brightness(self, value):
         """Set the brightness of the LCD backlight without saving the value to the device.
@@ -502,15 +630,34 @@ class LCDSysInfo(object):
         """
         self.devh.controlMsg(0x40, 15, "", address, command, self.usb_timeout_ms)
 
-    def write_image_to_flash(self, sector, bitmap):
-        """Write bitmap image to SPI flash memory.
+    def write_rawimage_to_flash(self, sector, rawfile, check_sizes=True):
+        """Write raw format bitmap image to SPI flash memory.
 
         Args:
             sector (int): Address of starting sector (0-511).
-            bitmap (str): Contents of bitmap image, in 16bpp, RGB 5:6:5 format.
+            bitmap (str/bytes/bytearray): Contents of raw bitmap image, in big endian 16bpp, RGB 5:6:5 format.
+            check_sizes (bool): If True ensure image dimensions are either 36x36 or 320x240
         """
+        rawfile = bytearray(rawfile)
+        header = rawfile[0:8]
+        # Sanity check
+        be_ui2 = '>H'
+        width = header[2:2 + 2]
+        width = buffer(width)  # struct does not accept bytearray params
+        width = struct.unpack(be_ui2, width)[0]
+        height = header[4:4 + 2]
+        height = buffer(height)
+        height = struct.unpack(be_ui2, height)[0]
+        
+        if check_sizes:
+            if (width != 36 or height != 36) and (width != 320 or height != 240):
+                raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
+
+        # TODO check rest of header?
+        # expected_header = [16, 16, width1, width2, height1, height2, 1, 27]
+        # TODO check length of rawfile?
+
         address = sector * 16
-        rawfile = self._bmp_to_raw(bitmap)
 
         # write enable flash
         self.send_command_to_flash(0, 5)
@@ -552,6 +699,16 @@ class LCDSysInfo(object):
 
         # write disable flash
         self.send_command_to_flash(0, 1)
+
+    def write_image_to_flash(self, sector, bitmap, check_sizes=True):
+        """Write bitmap image to SPI flash memory.
+
+        Args:
+            sector (int): Address of starting sector (0-511).
+            bitmap (str): Contents of BMP bitmap image, in 16bpp, RGB 5:6:5 format.
+        """
+        rawfile = _bmp_to_raw(bitmap)
+        self.write_rawimage_to_flash(sector, rawfile, check_sizes=check_sizes)
 
     def get_device_info(self):
         """Retrieve device information."""

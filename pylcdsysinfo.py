@@ -716,8 +716,28 @@ class LCDSysInfo(object):
         info['eeprom'] = self.devh.controlMsg(0xc0, 12, 8, 0, 1, self.usb_timeout_ms)
         info['serial'] = self.devh.controlMsg(0xc0, 12, 8, 0, 5, self.usb_timeout_ms)
         info['flash_id'] = self.devh.controlMsg(0xc0, 12, 2, 0, 6, self.usb_timeout_ms)
+        info['flash_data'] = self.devh.controlMsg(0xc0, 12, 2, 0, 4, self.usb_timeout_ms)
 
         info['device_valid'] = (info['eeprom'][1] == 102 or info['eeprom'][1] == 103)
         info['picture_frame_mode'] = (info['eeprom'][4] == 136)
         info['8mb_flash'] = ((((info['eeprom'][6] / 2) & 1) == 0) and (((info['eeprom'][6] / 4) & 1) == 0))
+        
+        # this is a straight port of the C#, using buffer ba2
+        flash_id = info['flash_id']
+        x = flash_id[0], flash_id[1]
+        if flash_id[0] == 0xEF and flash_id[1] == 0x14:
+            flashcap = "2MB"
+        elif flash_id[0] == 0xEF and flash_id[1] == 0x16:
+            flashcap = "8MB"
+        else:
+            flashcap = "unknown capacity"
+        info['flashcap'] = flashcap
+        
+        # this is a straight port of the C#, using buffer ba3
+        # NOTE my firmware reports 1.03 although I believe my version is 1.05
+        firmware_version = info['eeprom'][1]
+        info['firmware_version'] = firmware_version / 100.0
+
+        info['flash_data_version'] = info['flash_data'][0] / 100.0
+        
         return info

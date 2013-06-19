@@ -3,9 +3,36 @@ pylcdsysinfo
 
 Python interface to Coldtears' LCD Sys Info device (http://www.coldtears.com/electronics/)
 
-**Note:** You may need to copy the provided `99-lcdsysinfo.rules` file into
+**Note:** On some Linux platforms like Ubuntu only root has write permission
+to usb devices unless permission is is given to other users.
+You may need to copy the provided `99-lcdsysinfo.rules` file into
 `/etc/udev/rules.d/` in order to grant pylcdsysinfo permission to claim the
-device without running as root.
+device without running as root. Example:
+
+    sudo cp 99-lcdsysinfo.rules /etc/udev/rules.d/
+
+If the screen is already plugged in, unplug and plug back in again after the
+copy.
+
+pylcdsysinfo relies on the Python usb library http://pyusb.sourceforge.net/
+this can be installed via pip/easy_install, Example:
+
+    pip install pyusb
+
+or through the distribution specific package install, example for Ubuntu/Debian:
+
+    sudo apt-get install python-usb
+
+**Note:** using the operating system packages is likely to install an old version.
+
+For Windows an additional step is required, a usb driver is required to allow the
+python usb library to talk with the display. A signed driver for Windows 7 (and XP)
+64 and 32 bit can be installed by using zadig_v2.0.1.160 from 
+http://sourceforge.net/projects/libwdi/files/zadig/ ensure the LCD device is
+**not** plugged in, run zadig, insert the device, change the driver to
+`libusb-win32` and hit install. libusb-win32 version 1.2.4.0 from
+http://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.4.0/ 
+is also known to work under Windows XP, with Python 2.6.4 and python usb 1.0.
 
 Help on module pylcdsysinfo:
 

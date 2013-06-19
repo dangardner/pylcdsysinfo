@@ -318,8 +318,13 @@ class LCDSysInfo(object):
         Args:
             line (int): The line on which the text should be displayed, in the range 1 to 6.
             text_string (str): The text to be displayed, which will be truncated as
-                required. Use "|" for wider spacing and "^" to display a "degrees" symbol.
+                required. Use "|" for wider spacing blank and "^" to display a "degrees" symbol.
                 Use "\\t" (TAB) to construct a two-column layout.
+                All characters should be printable 7 bit US-ASCII characters.
+                Other special characters than TAB, pipe, and caret are space and underscore.
+                " " at the start of a string is ignored (instead use pipe, "|").
+                "_" is treated as a (very small) small blank space.
+                The following characters are ignored, "{", "}", and "~".
             pad_for_icon (bool): If true, padding will be added to the left of the text,
                 to accommodate an icon.
             alignment (int): The text alignment from pylcdsysinfo.TextAlignment.

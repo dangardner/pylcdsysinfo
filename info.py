@@ -17,6 +17,9 @@ EEPROM Data: %s
 Device Valid: %s
 8Mb Flash: %s
 Picture Frame Mode: %s
+Flash capacity: %s
+Firmware version: %s
+Flash data version: %s
 """ % (
     b2h(info['serial']),
     b2h(info['flash_id']),
@@ -24,4 +27,7 @@ Picture Frame Mode: %s
     info['device_valid'],
     info['8mb_flash'],
     info['picture_frame_mode'],
+    info['flashcap'],
+    info['firmware_version'],
+    info['flash_data_version'],
 ),

@@ -39,19 +39,18 @@ except ImportError:
 import pylcdsysinfo
 
 
+# NOTE pyusb>=0.4 does work but later version 1.0 releases are
+# needed to avoid crashes on device removal under Windows
+min_ver_pyusb = '1.0.0a3'
 kwargs = {
     'requires': [
-        # NOTE pyusb>=0.4 does work but later version 1.0 releases are
-        # needed for to avoid crashes on device removal under Windows
-        'pyusb (>=1.0.0a3)',
+        'pyusb (>=%s)' % min_ver_pyusb,
     ],
 }
 
 if setuptools:
     kwargs['install_requires'] = [
-            # NOTE pyusb>=0.4 does work but later version 1.0 releases are
-            # needed for to avoid crashes on device removal under Windows
-            'pyusb>=1.0.0a3',
+            'pyusb>=%s' % min_ver_pyusb,
         ]
 
 setup(

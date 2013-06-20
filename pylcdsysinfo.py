@@ -19,7 +19,18 @@
 #
 # See <http://www.gnu.org/licenses/gpl-3.0.txt>
 
-import usb, time, struct
+import time
+import struct
+
+try:
+    import usb
+except ImportError:
+    # caller may not want usb access, e.g. image conversion
+    usb = None
+
+# Use Semantic Versioning, http://semver.org/
+version_info = (0, 0, 1, 'a1')
+__version__ = '.'.join(map(str, version_info))
 
 try:
     from PIL import Image  # http://www.pythonware.com/products/pil/
@@ -299,6 +310,9 @@ class LCDSysInfo(object):
             IOError: An error ocurred while opening the LCD Sys Info device.
             RuntimeError: PyUSB 0.4 or later is required.
         """
+
+        if usb is None:
+            raise ImportError('No module named usb')
 
         dev = self._find_device(0x16c0, 0x05dc, index)
         if not dev:

@@ -2,7 +2,7 @@
 # -*- coding: ascii -*-
 # vim:ts=4:sw=4:softtabstop=4:smarttab:expandtab
 #
-# Interface with Cold Tears LCD Sys info USB device
+# Interface with Coldtears LCD Sys Info USB device
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,8 +19,7 @@
 
 Examples of pip usage:
 
-    pip install git+https://github.com/clach04/pylcdsysinfo.git@add_setup_py
-    pip install -r requirements.txt
+    pip install git+https://github.com/dangardner/pylcdsysinfo.git@add_setup_py
 
 Example setup.py usage:
 
@@ -36,6 +35,7 @@ except ImportError:
     setuptools = None
     from distutils.core import setup
 
+import sys
 import pylcdsysinfo
 
 
@@ -59,7 +59,7 @@ if setuptools:
 setup(
     name='pylcdsysinfo',
     version=pylcdsysinfo.__version__,
-    description='Python Cold Tears LCD Sys info USB device api',
+    description='Python Coldtears LCD Sys Info USB device API',
     author='Dan Gardner',
     author_email='?',  # FIXME
     license = 'GPL3',
@@ -67,7 +67,7 @@ setup(
     py_modules=['pylcdsysinfo',],  # TODO convert to a package, see below
     #packages=['pylcdsysinfo',],
     long_description =
-"""pylcdsysinfo offers easy access to the Cold Tears LCD Sys info USB device from Python.
+"""pylcdsysinfo offers easy access to the Coldtears LCD Sys Info USB device from Python.
 """,
     **kwargs
 )

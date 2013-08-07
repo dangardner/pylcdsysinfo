@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# Interface with LCD Sys info USB device
+# Interface with LCD Sys Info USB device
 #
 # Copyright (C) 2012  Dan Gardner
 #
@@ -29,7 +29,7 @@ except ImportError:
     usb = None
 
 # Use Semantic Versioning, http://semver.org/
-version_info = (0, 0, 1, 'a1')
+version_info = (0, 0, 1, 'a2')
 __version__ = '.'.join(map(str, version_info))
 
 try:
@@ -175,7 +175,7 @@ def raw_to_image(data):
     for c, d in enumerate(header):
         d = ord(d)
         print '%d  0x%02x %d' % (c, d, d)
-    
+
         '\x10\x10\x01@\x00\xf0\x01\x1b'
     Index  Hex  Decimal   Description
         0  0x10 16      # FIXED
@@ -191,7 +191,7 @@ def raw_to_image(data):
     width = struct.unpack(be_ui2, width)[0]
     height = header[4:4 + 2]
     height = struct.unpack(be_ui2, height)[0]
-    
+
     raw_data = data[8:]  # 16 bit rgb565 big endian buffer
     """
     im = Image.frombuffer('RGB', (width, height), raw_data, 'raw', 'RGB', 0, 1)
@@ -203,11 +203,11 @@ def raw_to_image(data):
         for x in xrange(width):
             px1 = raw_data[current_index]
             px2 = raw_data[current_index + 1]
-            
+
             # convert big-endian 2 bytes into short
             #px = ord(px2) + (ord(px1) * 256)  # dumb big endian 2 bytes to short
             px = struct.unpack(be_ui2, raw_data[current_index:current_index + 2])[0]
-            
+
             # Convert from rgb565 into rgb888
             im.putpixel((x, y_dx),
                     (
@@ -230,7 +230,7 @@ def image_to_raw(im):
     width, height = im.size
     width_bin = struct.pack(be_ui2, width)
     height_bin = struct.pack(be_ui2, height)
-    
+
     raw_size = width * height * 2
     rawfile = bytearray(b'\x00' * (raw_size + 8))
     rawfile[0:8] = [16, 16, width_bin[0], width_bin[1], height_bin[0], height_bin[1], 1, 27]
@@ -241,7 +241,7 @@ def image_to_raw(im):
         y_dx = (height - y) - 1
         for x in xrange(width):
             r, g, b = im.getpixel((x, y_dx))
-            
+
             rgb565 = (int(float(r) / 255 * 31) << 11) | (int(float(g) / 255 * 63) << 5) | (int(float(b) / 255 * 31))
             """
             r_new = (r >> 3) << 3
@@ -268,7 +268,7 @@ def simpleimage_resize(im, expected_size=MAX_IMAGE_SIZE):
         """
         im.thumbnail((expected_size[0] * 2, expected_size[1] * 2))
         im.thumbnail(expected_size, Image.ANTIALIAS)
-    
+
     # image is not too big, but it may be too small
     # _may_ need to add black bar(s)
     if im.size < expected_size:
@@ -278,7 +278,7 @@ def simpleimage_resize(im, expected_size=MAX_IMAGE_SIZE):
         x, y = im.size
         background.paste(im, (0, 0, x, y))  # does not center/centre
         im = background
-    
+
     return im
 
 
@@ -662,7 +662,7 @@ class LCDSysInfo(object):
         height = header[4:4 + 2]
         height = buffer(height)
         height = struct.unpack(be_ui2, height)[0]
-        
+
         if check_sizes:
             if (width != 36 or height != 36) and (width != 320 or height != 240):
                 raise IOError("Image dimensions must be 36x36 or 320x240 (not %dx%d)" % (width, height))
@@ -735,7 +735,7 @@ class LCDSysInfo(object):
         info['device_valid'] = (info['eeprom'][1] == 102 or info['eeprom'][1] == 103)
         info['picture_frame_mode'] = (info['eeprom'][4] == 136)
         info['8mb_flash'] = ((((info['eeprom'][6] / 2) & 1) == 0) and (((info['eeprom'][6] / 4) & 1) == 0))
-        
+
         # this is a straight port of the C#, using buffer ba2
         flash_id = info['flash_id']
         x = flash_id[0], flash_id[1]
@@ -746,12 +746,12 @@ class LCDSysInfo(object):
         else:
             flashcap = "unknown capacity"
         info['flashcap'] = flashcap
-        
+
         # this is a straight port of the C#, using buffer ba3
         # NOTE my firmware reports 1.03 although I believe my version is 1.05
         firmware_version = info['eeprom'][1]
         info['firmware_version'] = firmware_version / 100.0
 
         info['flash_data_version'] = info['flash_data'][0] / 100.0
-        
+
         return info

@@ -52,6 +52,7 @@ For help on usage of the pylcdsysinfo module and API, see the file `USAGE.txt` (
  * `demo.py` - loops through various pylcdsysinfo functions
  * `imageloop.py` - displays all of the images from flash in sequence
  * `info.py` - prints out LCD Sys Info serial, firmware, storage info etc at the console
+ *  mpd.py  - displays MPD (Music Player Daemon) song info
 
 ## License
 

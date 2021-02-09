@@ -11,7 +11,7 @@ def b2h(ba):
     """Convert byte array to hyphen separated hex string."""
     return '-'.join(["%02X" % i for i in ba]).strip()
 
-print """Serial number: %s
+print("""Serial number: %s
 Flash Id: %s
 EEPROM Data: %s
 Device Valid: %s
@@ -30,4 +30,4 @@ Flash data version: %s
     info['flashcap'],
     info['firmware_version'],
     info['flash_data_version'],
-),
+))

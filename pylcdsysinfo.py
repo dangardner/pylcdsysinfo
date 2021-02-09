@@ -19,27 +19,15 @@
 #
 # See <http://www.gnu.org/licenses/gpl-3.0.txt>
 
+import math
 import time
 import struct
-
-try:
-    import usb
-except ImportError:
-    # caller may not want usb access, e.g. image conversion
-    usb = None
+import usb.core
+from PIL import Image  # http://www.pythonware.com/products/pil/
 
 # Use Semantic Versioning, http://semver.org/
 version_info = (0, 0, 1, 'a2')
 __version__ = '.'.join(map(str, version_info))
-
-try:
-    from PIL import Image  # http://www.pythonware.com/products/pil/
-except ImportError:
-    try:
-        import Image  # http://www.pythonware.com/products/pil/
-    except ImportError:
-        Image = None
-
 
 _font_length_table = [
     0x11, 0x06, 0x08, 0x15, 0x0E, 0x19, 0x15, 0x03, 0x08, 0x08, 0x0F, 0x0D,
@@ -131,7 +119,6 @@ class TextLines(object):
     LINE_6      = 1 << 5
     ALL         = LINE_1 + LINE_2 + LINE_3 + LINE_4 + LINE_5 + LINE_6
 
-
 def _le_unpack(byte):
     """Converts little-endian byte string to integer."""
     return sum([ b << (8 * i) for i, b in enumerate(byte) ])
@@ -197,10 +184,10 @@ def raw_to_image(data):
     im = Image.frombuffer('RGB', (width, height), raw_data, 'raw', 'RGB', 0, 1)
     """
     im = Image.new("RGB", (width, height))
-    for y in xrange(height):
+    for y in range(height):
         current_index = (width * (height - (y + 1)) * 2)
         y_dx = (height - y) - 1
-        for x in xrange(width):
+        for x in range(width):
             px1 = raw_data[current_index]
             px2 = raw_data[current_index + 1]
 
@@ -236,21 +223,13 @@ def image_to_raw(im):
     rawfile[0:8] = [16, 16, width_bin[0], width_bin[1], height_bin[0], height_bin[1], 1, 27]
     raw_index = 8
 
-    for y in xrange(height):
+    for y in range(height):
         current_index = raw_index + (width * (height - (y + 1)) * 2)
         y_dx = (height - y) - 1
-        for x in xrange(width):
+        for x in range(width):
             r, g, b = im.getpixel((x, y_dx))
 
             rgb565 = (int(float(r) / 255 * 31) << 11) | (int(float(g) / 255 * 63) << 5) | (int(float(b) / 255 * 31))
-            """
-            r_new = (r >> 3) << 3
-            g_new = (g >> 2) << 2
-            b_new = (b >> 3) << 3
-
-            print x, y, y_dx, (r, g, b), (hex(r), hex(g), hex(b)), (hex(r_new), hex(g_new), hex(b_new))
-            #print rgb565, hex(rgb565)
-            """
             one_pixel = struct.pack(be_ui2, rgb565)
             rawfile[current_index] = one_pixel[0]
             rawfile[current_index + 1] = one_pixel[1]
@@ -281,13 +260,10 @@ def simpleimage_resize(im, expected_size=MAX_IMAGE_SIZE):
 
     return im
 
-
 class LCDSysInfo(object):
-
     """A Python driver for the Coldtears LCD Sys Info
     (http://coldtearselectronics.wikispaces.com/)
     """
-
     usb_timeout_ms = 5000
     clear_line_wait_ms = 1000
     erase_sector_wait_ms = 220
@@ -308,47 +284,10 @@ class LCDSysInfo(object):
                 Sys Info devices, with zero (the default) being the first device.
         Raises:
             IOError: An error ocurred while opening the LCD Sys Info device.
-            RuntimeError: PyUSB 0.4 or later is required.
         """
-
-        if usb is None:
-            raise ImportError('No module named usb')
-
-        dev = self._find_device(0x16c0, 0x05dc, index)
-        if not dev:
-            raise IOError("LCD Sys Info device not found")
-        self.devh = dev.open()
-        if not self.devh:
-            raise IOError("Failed to open device")
-        try:
-            self.devh.claimInterface(0)
-        except usb.USBError:
-            if not hasattr(self.devh, "detachKernelDriver"):
-                raise RuntimeError("Please upgrade python-usb (pyusb) to 0.4 or later")
-            try:
-                self.devh.detachKernelDriver(0)
-                self.devh.claimInterface(0)
-            except usb.USBError:
-                raise IOError("Failed to claim interface")
-
-    def __del__(self):
-        """Closes the handle to the LCD Sys Info device."""
-        if self.devh:
-            try:
-                self.devh.releaseInterface()
-            except ValueError:
-                # interface was not claimed, not a problem
-                pass
-
-    def _find_device(self, idVendor, idProduct, index):
-        """Locate the index'th device with specified vendor and product id."""
-        for bus in usb.busses():
-            for dev in bus.devices:
-                if dev.idVendor == idVendor and dev.idProduct == idProduct:
-                    index -= 1
-                    if index < 0:
-                        return dev
-        return None
+        self.dev = usb.core.find(idVendor=0x16c0, idProduct=0x05dc)
+        if self.dev == None:
+            raise IOError("Unable to find an LCD Sys Info Device")
 
     def set_brightness(self, value):
         """Set the brightness of the LCD backlight without saving the value to the device.
@@ -357,7 +296,7 @@ class LCDSysInfo(object):
             value (int): Number representing the LCD brightness, in the range 0 to 255.
         """
         value = max(0, min(value, 255))
-        self.devh.controlMsg(0x40, 13, "", min(value, 255), min(value, 255), self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 13, min(value, 255), min(value, 255), "", self.usb_timeout_ms)
 
     def save_brightness(self, off_value, on_value):
         """Set the brightness of the LCD backlight when idle and active and
@@ -369,7 +308,7 @@ class LCDSysInfo(object):
             on_value (int): Number representing the LCD backlight brightness
                 when the LCD is active.
         """
-        self.devh.controlMsg(0x40, 14, "", off_value + on_value * 256, 0, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 14, off_value + on_value * 256, 0, "", self.usb_timeout_ms)
 
     def display_icon(self, position, icon_number):
         """Display an icon at a specified position on the device.
@@ -384,7 +323,7 @@ class LCDSysInfo(object):
         """
         # TODO create enumeration class for icons
         position = max(0, min(position, 47))
-        self.devh.controlMsg(0x40, 27, "", position * 512 + icon_number, 25600, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 27, position * 512 + icon_number, 25600, "", self.usb_timeout_ms)
 
         if icon_number in large_image_indexes:
             time.sleep(self.max_display_icon_wait_ms / 1000.0)
@@ -412,7 +351,7 @@ class LCDSysInfo(object):
         pos_y = max(0, min(pos_y, 240))
         ba = struct.pack("<BBBB", pos_y >> 8, pos_y & 0xFF, pos_x >> 8, pos_x & 0xFF)
         tmp = (icon_number << 8) + icon_number
-        self.devh.controlMsg(0x40, 29, ba, tmp, tmp, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 29, tmp, tmp, ba, self.usb_timeout_ms)
 
         if icon_number in large_image_indexes:
             time.sleep(self.max_display_icon_wait_ms / 1000.0)
@@ -425,7 +364,7 @@ class LCDSysInfo(object):
         Args:
             colour (int): The background colour from pylcdsysinfo.BackgroundColours.
         """
-        self.devh.controlMsg(0x40, 30, "", colour, 0, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 30, colour, 0, "", self.usb_timeout_ms)
 
     def _align_text(self, mm, alignment, screen_px, string_length_px):
         """Align text suitably for the specified screen width"""
@@ -505,7 +444,7 @@ class LCDSysInfo(object):
         line = max(1, min(line, 6))
         if isinstance(text_string, str):
             text_string = text_string.encode("ascii")
-        self.devh.controlMsg(0x40, 24, text_string, text_length, (line - 1) * 256 + colour,
+        self.dev.ctrl_transfer(0x40, 24, text_length, (line - 1) * 256 + colour, text_string,
             self.usb_timeout_ms)
 
 
@@ -541,7 +480,7 @@ class LCDSysInfo(object):
 
         text_length = len(text_string)
         colour = min(colour, 32)
-        self.devh.controlMsg(0x40, 25, ba, text_length, colour, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 25, text_length, colour, ba, self.usb_timeout_ms)
 
         time.sleep(self.max_display_text_wait_ms / 1000)
 
@@ -553,9 +492,9 @@ class LCDSysInfo(object):
                 otherwise the function will be disabled.
         """
         if value:
-            self.devh.controlMsg(0x40, 17, "", 1, 0, self.usb_timeout_ms)
+            self.dev.ctrl_transfer(0x40, 17, 1, 0, "", self.usb_timeout_ms)
         else:
-            self.devh.controlMsg(0x40, 17, "", 0, 266, self.usb_timeout_ms)
+            self.dev.ctrl_transfer(0x40, 17, 0, 266, "", self.usb_timeout_ms)
 
     def clear_lines(self, lines, colour):
         """Clear lines of the display using a coloured background.
@@ -566,7 +505,7 @@ class LCDSysInfo(object):
             colour (int): The background colour from pylcdsysinfo.BackgroundColours.
         """
         lines = max(1, min(lines, 63))
-        self.devh.controlMsg(0x40, 26, "", lines, colour, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 26, lines, colour, "", self.usb_timeout_ms)
         time.sleep(self.clear_line_wait_ms * (count_bits_set(lines) / 6.0) * 0.8 / 1000)
 
     def display_cpu_info(self, cpu_util, cpu_temp, util_colour=TextColours.GREEN, temp_colour=TextColours.GREEN):
@@ -582,7 +521,7 @@ class LCDSysInfo(object):
             temp_colour (int): The colour of the CPU temperature, from
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
-        self.devh.controlMsg(0x40, 21, chr(util_colour) + chr(temp_colour), cpu_util, cpu_temp, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 21, cpu_util, cpu_temp, chr(util_colour) + chr(temp_colour), self.usb_timeout_ms)
         time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_ram_gpu_info(self, ram, gpu_temp, ram_colour=TextColours.GREEN, temp_colour=TextColours.GREEN):
@@ -598,7 +537,7 @@ class LCDSysInfo(object):
             temp_colour (int): The colour of the GPU temperature, from
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
-        self.devh.controlMsg(0x40, 22, chr(ram_colour) + chr(temp_colour), ram, gpu_temp, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 22, ram, gpu_temp, chr(ram_colour) + chr(temp_colour), self.usb_timeout_ms)
         time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_network_info(self, recv, sent, recv_colour=TextColours.GREEN, sent_colour=TextColours.GREEN, recv_mb=False, sent_mb=False):
@@ -616,7 +555,7 @@ class LCDSysInfo(object):
             recv_mb (bool): Display receive rate in kb instead of the default Mb.
             sent_mb (bool): Display transmit rate in kb instead of the default Mb.
         """
-        self.devh.controlMsg(0x40, 20, chr(recv_mb) + chr(sent_mb) + chr(recv_colour) + chr(sent_colour), recv, sent, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 20, recv, sent, chr(recv_mb) + chr(sent_mb) + chr(recv_colour) + chr(sent_colour), self.usb_timeout_ms)
         time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def display_fan_info(self, cpufan, chafan, cpufan_colour=TextColours.GREEN, chafan_colour=TextColours.GREEN):
@@ -632,7 +571,7 @@ class LCDSysInfo(object):
             chafan_colour (int): The colour of the chassis fan speed, from
                 pylcdsysinfo.BackgroundColours (defaults to GREEN).
         """
-        self.devh.controlMsg(0x40, 23, chr(cpufan_colour) + chr(chafan_colour), cpufan, chafan, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 23, cpufan, chafan, chr(cpufan_colour) + chr(chafan_colour), self.usb_timeout_ms)
         time.sleep(self.display_sysinfo_wait_ms / 1000.0)
 
     def send_command_to_flash(self, address, command):
@@ -642,7 +581,7 @@ class LCDSysInfo(object):
             address (int): Address of sector or page to write
             command (int): 0=write enable, 1=write disable, 2=erase sector, 3=program page.
         """
-        self.devh.controlMsg(0x40, 15, "", address, command, self.usb_timeout_ms)
+        self.dev.ctrl_transfer(0x40, 15, address, command, "", self.usb_timeout_ms)
 
     def write_rawimage_to_flash(self, sector, rawfile, check_sizes=True):
         """Write raw format bitmap image to SPI flash memory.
@@ -657,10 +596,10 @@ class LCDSysInfo(object):
         # Sanity check
         be_ui2 = '>H'
         width = header[2:2 + 2]
-        width = buffer(width)  # struct does not accept bytearray params
+        width = memoryview(width)  # struct does not accept bytearray params
         width = struct.unpack(be_ui2, width)[0]
         height = header[4:4 + 2]
-        height = buffer(height)
+        height = memoryview(height)
         height = struct.unpack(be_ui2, height)[0]
 
         if check_sizes:
@@ -692,10 +631,10 @@ class LCDSysInfo(object):
                             temp_byte[k] = rawfile[file_index]
                         file_index += 1
                     # send 64 byte chunk to device's memory buffer, chunk=0,1,2,3
-                    self.devh.controlMsg(0x40, 16, temp_byte, 0, chunk, self.usb_timeout_ms)
+                    self.dev.ctrl_transfer(0x40, 16, 0, chunk, temp_byte, self.usb_timeout_ms)
 
                 # fetch 2-byte checksum calculated by device
-                b = self.devh.controlMsg(0xc0, 12, 2, 0, 0, self.usb_timeout_ms)
+                b = self.dev.ctrl_transfer(0xc0, 12, 0, 0, 2, self.usb_timeout_ms)
                 device_checksum = b[0] * 256 + b[1]
 
                 # calculate checksum locally
@@ -727,14 +666,14 @@ class LCDSysInfo(object):
     def get_device_info(self):
         """Retrieve device information."""
         info = { }
-        info['eeprom'] = self.devh.controlMsg(0xc0, 12, 8, 0, 1, self.usb_timeout_ms)
-        info['serial'] = self.devh.controlMsg(0xc0, 12, 8, 0, 5, self.usb_timeout_ms)
-        info['flash_id'] = self.devh.controlMsg(0xc0, 12, 2, 0, 6, self.usb_timeout_ms)
-        info['flash_data'] = self.devh.controlMsg(0xc0, 12, 2, 0, 4, self.usb_timeout_ms)
+        info['eeprom'] = self.dev.ctrl_transfer(0xc0, 12, 0, 1, 8, self.usb_timeout_ms)
+        info['serial'] = self.dev.ctrl_transfer(0xc0, 12, 0, 5, 8, self.usb_timeout_ms)
+        info['flash_id'] = self.dev.ctrl_transfer(0xc0, 12, 0, 6, 2, self.usb_timeout_ms)
+        info['flash_data'] = self.dev.ctrl_transfer(0xc0, 12, 0, 4, 2, self.usb_timeout_ms)
 
         info['device_valid'] = (info['eeprom'][1] == 102 or info['eeprom'][1] == 103)
         info['picture_frame_mode'] = (info['eeprom'][4] == 136)
-        info['8mb_flash'] = ((((info['eeprom'][6] / 2) & 1) == 0) and (((info['eeprom'][6] / 4) & 1) == 0))
+        info['8mb_flash'] = (((math.floor(info['eeprom'][6] / 2) & 1) == 0) and ((math.floor(info['eeprom'][6] / 4) & 1) == 0))
 
         # this is a straight port of the C#, using buffer ba2
         flash_id = info['flash_id']

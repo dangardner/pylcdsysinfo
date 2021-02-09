@@ -1,0 +1,9 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pylcdsysinfo"
+
+[packages]
+pyusb = "1.1.1"
+pylcdsysinfo = {editable = true, path = "."}
+pillow = "8.1.0"

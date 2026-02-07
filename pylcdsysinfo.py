@@ -197,10 +197,10 @@ def raw_to_image(data):
     im = Image.frombuffer('RGB', (width, height), raw_data, 'raw', 'RGB', 0, 1)
     """
     im = Image.new("RGB", (width, height))
-    for y in xrange(height):
+    for y in range(height):
         current_index = (width * (height - (y + 1)) * 2)
         y_dx = (height - y) - 1
-        for x in xrange(width):
+        for x in range(width):
             px1 = raw_data[current_index]
             px2 = raw_data[current_index + 1]
 
@@ -236,10 +236,10 @@ def image_to_raw(im):
     rawfile[0:8] = [16, 16, width_bin[0], width_bin[1], height_bin[0], height_bin[1], 1, 27]
     raw_index = 8
 
-    for y in xrange(height):
+    for y in range(height):
         current_index = raw_index + (width * (height - (y + 1)) * 2)
         y_dx = (height - y) - 1
-        for x in xrange(width):
+        for x in range(width):
             r, g, b = im.getpixel((x, y_dx))
 
             rgb565 = (int(float(r) / 255 * 31) << 11) | (int(float(g) / 255 * 63) << 5) | (int(float(b) / 255 * 31))
@@ -335,9 +335,15 @@ class LCDSysInfo(object):
         """Closes the handle to the LCD Sys Info device."""
         if self.devh:
             try:
-                self.devh.releaseInterface()
+                if hasattr(self.devh, "releaseInterface"):
+                    self.devh.releaseInterface()
+                else:
+                    usb.util.release_interface(self.devh, 0)
             except ValueError:
                 # interface was not claimed, not a problem
+                pass
+            except AttributeError:
+                # usb.util not available or device handle incompatible
                 pass
 
     def _find_device(self, idVendor, idProduct, index):
@@ -656,12 +662,8 @@ class LCDSysInfo(object):
         header = rawfile[0:8]
         # Sanity check
         be_ui2 = '>H'
-        width = header[2:2 + 2]
-        width = buffer(width)  # struct does not accept bytearray params
-        width = struct.unpack(be_ui2, width)[0]
-        height = header[4:4 + 2]
-        height = buffer(height)
-        height = struct.unpack(be_ui2, height)[0]
+        width = struct.unpack_from(be_ui2, header, 2)[0]
+        height = struct.unpack_from(be_ui2, header, 4)[0]
 
         if check_sizes:
             if (width != 36 or height != 36) and (width != 320 or height != 240):
